@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dev-dist/
+*.tsbuildinfo
+
+# Environment / secrets (OPENAI_API_KEY и др.)
+.env
+.env.*
+!.env.example
+
+# Tests & coverage
+coverage/
+
+# Tooling artifacts (agent sessions, browser-test snapshots)
+.sisyphus/
+.playwright-mcp/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+
+# Local caches
+.vite/
+*.local
+

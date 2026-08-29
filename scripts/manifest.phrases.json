@@ -1,0 +1,59 @@
+{
+  "model": "gpt-4o-mini-tts",
+  "format": "mp3",
+  "speed": 1.0,
+  "voices": {
+    "ru": "shimmer",
+    "en": "alloy"
+  },
+  "phrases": {
+    "start": {
+      "ru": "Отдых начался",
+      "en": "Rest started"
+    },
+    "n15": {
+      "ru": "Пятнадцать",
+      "en": "Fifteen"
+    },
+    "n10": {
+      "ru": "Десять",
+      "en": "Ten"
+    },
+    "n5": {
+      "ru": "Пять",
+      "en": "Five"
+    },
+    "n4": {
+      "ru": "Четыре",
+      "en": "Four"
+    },
+    "n3": {
+      "ru": "Три",
+      "en": "Three"
+    },
+    "n2": {
+      "ru": "Две",
+      "en": "Two"
+    },
+    "n1": {
+      "ru": "Одна",
+      "en": "One"
+    },
+    "end": {
+      "ru": "Отдых окончен",
+      "en": "Rest complete"
+    },
+    "groupDone": {
+      "ru": "Серия завершена. Отличная работа!",
+      "en": "Series complete. Great job!"
+    },
+    "cfgLoaded": {
+      "ru": "Конфигурация загружена",
+      "en": "Configuration loaded"
+    },
+    "hello": {
+      "ru": "Готов к тренировке",
+      "en": "Ready to work out"
+    }
+  }
+}

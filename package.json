@@ -1,0 +1,41 @@
+{
+  "name": "resttimer",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "RestTimer — serverless gym rest-timer webapp (Telegram Mini App + browser), GitHub Pages hosted",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "generate:voice": "node scripts/generate-voice.mjs"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "jsqr": "^1.4.0",
+    "lz-string": "^1.5.0",
+    "motion": "^12.23.0",
+    "nanoid": "^5.1.5",
+    "qrcode": "^1.5.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zustand": "^5.0.5"
+  },
+  "devDependencies": {
+    "@sinonjs/fake-timers": "^14.0.0",
+    "@tailwindcss/vite": "^4.1.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.5.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "~5.8.3",
+    "vite": "^6.3.5",
+    "vite-plugin-pwa": "^0.21.2",
+    "vitest": "^3.1.0"
+  }
+}
