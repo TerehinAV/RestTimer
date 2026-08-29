@@ -9,6 +9,8 @@ export const LIMITS = {
   incStep: 5,
   nameMax: 40,
   customPresetsMax: 6,
+  tagMax: 20,
+  tagsPerGroupMax: 6,
 } as const;
 
 export type GroupConfig = {
@@ -17,6 +19,7 @@ export type GroupConfig = {
   startSec: number;
   count: number;
   incSec: number;
+  tags?: string[];
 };
 
 export type Registry = { v: 1; groups: GroupConfig[] };
@@ -71,4 +74,5 @@ export type Settings = {
   langMode: LangMode;
   voiceOn: boolean;
   beepsOn: boolean;
+  mediaKeepAlive: boolean;
 };

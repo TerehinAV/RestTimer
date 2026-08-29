@@ -22,6 +22,8 @@ export type PlaybackState = 'playing' | 'paused' | 'none';
 export type MinimalAudioEl = {
   preload: string;
   currentTime: number;
+  loop: boolean;
+  volume: number;
   play(): Promise<void>;
   pause(): void;
 };
@@ -68,10 +70,45 @@ const defaultCtxFactory = (): MinimalAudioCtx => {
   };
 };
 
+const KEEPALIVE_TONE_AMPLITUDE = 0;
+
+function silentLoopWavDataUri(): string {
+  const sr = 8000;
+  const samples = Math.floor(sr * 0.5);
+  const view = new DataView(new ArrayBuffer(44 + samples * 2));
+  const ascii = (offset: number, text: string) => {
+    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + samples * 2, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sr, true);
+  view.setUint32(28, sr * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, 'data');
+  view.setUint32(40, samples * 2, true);
+  for (let i = 0; i < samples; i += 1) {
+    view.setInt16(44 + i * 2, KEEPALIVE_TONE_AMPLITUDE, true);
+  }
+  const bytes = new Uint8Array(view.buffer);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+  return `data:audio/wav;base64,${btoa(bin)}`;
+}
+
+const defaultAudioElFactory = (url: string): MinimalAudioEl =>
+  new Audio(url) as unknown as MinimalAudioEl;
+
 export class AudioService {
   private deps: AudioDeps;
   private ctx: MinimalAudioCtx | null = null;
   private pool = new Map<string, MinimalAudioEl>();
+  private keepAliveEl: MinimalAudioEl | null = null;
   private unlocked = false;
 
   constructor(deps: AudioDeps) {
@@ -127,6 +164,25 @@ export class AudioService {
   syncMediaState(state: PlaybackState): void {
     const ms = (navigator as { mediaSession?: { playbackState?: PlaybackState } }).mediaSession;
     if (ms) ms.playbackState = state;
+  }
+
+  setKeepAlive(on: boolean): void {
+    if (on) {
+      if (!this.keepAliveEl) {
+        try {
+          const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
+          const el = factory(silentLoopWavDataUri());
+          el.loop = true;
+          el.volume = 0.0001;
+          this.keepAliveEl = el;
+        } catch {
+          return;
+        }
+      }
+      void this.keepAliveEl.play().catch(() => undefined);
+    } else {
+      this.keepAliveEl?.pause();
+    }
   }
 
   get isUnlocked(): boolean {

@@ -3,6 +3,7 @@ import { getEngine, startRun } from '../../boot';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
+import { useSwipeBack } from '../useSwipeBack';
 
 export function SummaryScreen() {
   const runId = useApp((s) => (s.screen.name === 'summary' ? s.screen.runId : ''));
@@ -10,6 +11,10 @@ export function SummaryScreen() {
   const config = useApp((s) => (run ? s.registry.groups.find((g) => g.id === run.configId) : undefined));
   const lang = useApp((s) => s.lang);
   const setScreen = useApp((s) => s.setScreen);
+  const swipeBack = useSwipeBack(() => {
+    getEngine().dismiss(runId);
+    setScreen({ name: 'registry' });
+  });
 
   if (!run) {
     return (
@@ -28,7 +33,7 @@ export function SummaryScreen() {
   };
 
   return (
-    <main className="flex h-full flex-col bg-bg px-6 pb-8 pt-6">
+    <main className="flex h-full flex-col bg-bg px-6 pb-8 pt-6" {...swipeBack}>
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 text-center">
         <p className="text-xs uppercase tracking-[0.3em] text-go">✓ {t(lang, 'summaryTitle')}</p>
         {run.label && <h1 className="text-xl font-semibold">{run.label}</h1>}

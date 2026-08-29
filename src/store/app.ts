@@ -39,7 +39,7 @@ export const useApp = create<AppState>()(
     (set, get) => ({
       registry: emptyRegistry,
       customPresets: [],
-      settings: { themeMode: 'auto', langMode: 'auto', voiceOn: true, beepsOn: true },
+      settings: { themeMode: 'auto', langMode: 'auto', voiceOn: true, beepsOn: true, mediaKeepAlive: false },
       screen: { name: 'registry' },
       lang: 'en',
       runs: [],

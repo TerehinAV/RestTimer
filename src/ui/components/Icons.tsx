@@ -52,6 +52,12 @@ export const PrevIcon = ({ className = base }: IconProps) => (
   </svg>
 );
 
+export const PauseIcon = ({ className = base }: IconProps) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+    <path d="M9 5v14M15 5v14" />
+  </svg>
+);
+
 export const CheckIcon = ({ className = base }: IconProps) => (
   <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M20 6 9 17l-5-5" />

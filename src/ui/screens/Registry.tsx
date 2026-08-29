@@ -10,14 +10,13 @@ import {
 import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AnimatePresence, motion } from 'motion/react';
-import { capacityReport } from '../../core/codec';
 import { fmtMs, plannedMs } from '../../core/time';
 import type { GroupConfig } from '../../core/types';
 import { t } from '../../i18n';
 import { startRun, focusRun } from '../../boot';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
-import { GearIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, TrashIcon } from '../components/Icons';
+import { GearIcon, PauseIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, TrashIcon } from '../components/Icons';
 
 export function RegistryScreen() {
   const groups = useApp((s) => s.registry.groups);
@@ -27,11 +26,17 @@ export function RegistryScreen() {
   const moveGroup = useApp((s) => s.moveGroup);
 
   const [deleted, setDeleted] = useState<{ group: GroupConfig; index: number } | null>(null);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const allTags = useMemo(() => [...new Set(groups.flatMap((g) => g.tags ?? []))], [groups]);
+  const visibleGroups = useMemo(
+    () => (tagFilter ? groups.filter((g) => g.tags?.includes(tagFilter)) : groups),
+    [groups, tagFilter],
+  );
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { delay: 260, tolerance: 8 } }));
 
-  const report = useMemo(() => capacityReport(groups), [groups]);
 
   const onCardTap = (group: GroupConfig) => {
     const active = runs.find((r) => r.configId === group.id && r.runStatus === 'active');
@@ -44,7 +49,7 @@ export function RegistryScreen() {
   };
 
   const removeAt = (index: number) => {
-    const group = groups[index];
+    const group = visibleGroups[index];
     useApp.getState().removeGroup(group.id);
     haptic('warn');
     setDeleted({ group, index });
@@ -90,6 +95,34 @@ export function RegistryScreen() {
         </div>
       </header>
 
+      {allTags.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto px-4 pb-2">
+          <button
+            type="button"
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${tagFilter === null ? 'bg-accent font-semibold text-black' : 'bg-card text-fg-muted'}`}
+            onClick={() => {
+              haptic('select');
+              setTagFilter(null);
+            }}
+          >
+            {t(lang, 'tagAll')}
+          </button>
+          {allTags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${tagFilter === tag ? 'bg-accent font-semibold text-black' : 'bg-card text-fg-muted'}`}
+              onClick={() => {
+                haptic('select');
+                setTagFilter(tagFilter === tag ? null : tag);
+              }}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {groups.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -98,9 +131,9 @@ export function RegistryScreen() {
           </div>
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={groups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext items={visibleGroups.map((g) => g.id)} strategy={verticalListSortingStrategy}>
               <ul className="flex flex-col gap-2.5 pt-1">
-                {groups.map((group, i) => {
+                {visibleGroups.map((group, i) => {
                   const active = runs.find((r) => r.configId === group.id && r.runStatus === 'active');
                   const activeTimer = active?.timers[active.current];
                   return (
@@ -108,7 +141,6 @@ export function RegistryScreen() {
                       key={group.id}
                       group={group}
                       lang={lang}
-                      capacity={report.cumulativeStartapp[i] ? 'tg' : report.cumulativeQr[i] ? 'qr' : 'over'}
                       activeRun={
                         active && activeTimer ? { remainMs: activeTimer.remainMs, status: activeTimer.status } : undefined
                       }
@@ -156,7 +188,6 @@ export function RegistryScreen() {
 
 function SortableCard({
   group,
-  capacity,
   activeRun,
   lang,
   onTap,
@@ -164,7 +195,6 @@ function SortableCard({
   onDelete,
 }: {
   group: GroupConfig;
-  capacity: 'tg' | 'qr' | 'over';
   activeRun?: { remainMs: number; status: string };
   lang: 'ru' | 'en';
   onTap: () => void;
@@ -195,14 +225,7 @@ function SortableCard({
       >
         <div {...attributes} {...listeners} className="flex items-center gap-3 px-4 py-3.5" onClick={onTap}>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="truncate text-base font-medium">{group.name ?? `#${group.startSec}s`}</p>
-              <span
-                className={`h-2 w-2 shrink-0 rounded-full ${
-                  capacity === 'tg' ? 'bg-go' : capacity === 'qr' ? 'bg-accent' : 'bg-warn'
-                }`}
-              />
-            </div>
+            <p className="truncate text-base font-medium">{group.name ?? `#${group.startSec}s`}</p>
             <p className="mt-0.5 font-mono-timer text-sm tabular-nums text-fg-muted">
               {group.startSec / 60 >= 1
                 ? `${Math.floor(group.startSec / 60)}:${String(group.startSec % 60).padStart(2, '0')}`
@@ -211,16 +234,30 @@ function SortableCard({
               {group.count}
               {group.incSec > 0 ? ` +${group.incSec}` : ''}
             </p>
+            {group.tags && group.tags.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {group.tags.slice(0, 3).map((tag) => (
+                  <span key={tag} className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex flex-col items-end">
             <p className="font-mono-timer text-lg tabular-nums">{fmtMs(sum)}</p>
             {activeRun ? (
               <p
-                className={`font-mono-timer text-xs tabular-nums ${
+                className={`flex items-center gap-1 font-mono-timer text-xs tabular-nums ${
                   activeRun.status === 'running' ? 'text-go' : activeRun.status === 'paused' ? 'text-accent' : 'text-fg-muted'
                 }`}
               >
-                {activeRun.status === 'paused' ? '⏸' : '●'} {fmtMs(activeRun.remainMs)}
+                {activeRun.status === 'paused' ? (
+                  <PauseIcon className="h-3 w-3" />
+                ) : (
+                  <span className={`h-2 w-2 rounded-full ${activeRun.status === 'running' ? 'bg-go' : 'bg-fg-faint'}`} />
+                )}
+                {fmtMs(activeRun.remainMs)}
               </p>
             ) : (
               <p className="text-[11px] text-fg-faint">

@@ -6,6 +6,7 @@ import type { GroupConfig } from '../../core/types';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { isTelegram, openTelegramShare } from '../../tg/tg';
+import { useSwipeBack } from '../useSwipeBack';
 import { haptic } from '../../tg/tg';
 
 export function ShareScreen() {
@@ -14,6 +15,7 @@ export function ShareScreen() {
   const setScreen = useApp((s) => s.setScreen);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const swipeBack = useSwipeBack(() => setScreen({ name: 'registry' }));
   const [selected, setSelected] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(groups.map((g, i) => [g.id, i < maxExportableCount(groups)])),
   );
@@ -75,7 +77,7 @@ export function ShareScreen() {
   const qrClass = payload.length <= QR_BUDGET ? 'text-go' : 'text-warn';
 
   return (
-    <main className="relative flex h-full flex-col bg-bg">
+    <main className="relative flex h-full flex-col bg-bg" {...swipeBack}>
       <header className="flex items-center gap-3 px-4 pb-2 pt-5">
         <button type="button" className="text-2xl leading-none text-fg-muted" onClick={() => setScreen({ name: 'registry' })}>
           ‹
@@ -132,14 +134,16 @@ export function ShareScreen() {
         >
           {isTelegram() ? t(lang, 'shareTg') : t(lang, 'shareSystem')}
         </button>
-        <button
-          type="button"
-          disabled={!url || payload.length > QR_BUDGET}
-          className="w-full rounded-2xl bg-card py-3.5 text-sm font-medium text-fg active:opacity-70 disabled:opacity-40"
-          onClick={saveQr}
-        >
-          {t(lang, 'shareQr')}
-        </button>
+        {!isTelegram() && (
+          <button
+            type="button"
+            disabled={!url || payload.length > QR_BUDGET}
+            className="w-full rounded-2xl bg-card py-3.5 text-sm font-medium text-fg active:opacity-70 disabled:opacity-40"
+            onClick={saveQr}
+          >
+            {t(lang, 'shareQr')}
+          </button>
+        )}
       </div>
 
       {toast && (

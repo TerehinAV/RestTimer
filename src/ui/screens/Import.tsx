@@ -8,10 +8,25 @@ import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
 import { CameraIcon, ImageIcon } from '../components/Icons';
+import { useSwipeBack } from '../useSwipeBack';
 
 type ScanMode = 'camera' | 'gallery' | null;
 
 const NO_GROUPS: GroupConfig[] = [];
+
+function extractCfg(raw: string): string | null {
+  const text = raw.trim();
+  if (!text) return null;
+  if (/^https?:\/\//i.test(text)) {
+    try {
+      const u = new URL(text);
+      return u.searchParams.get('cfg') ?? u.searchParams.get('tgWebAppStartParam') ?? u.searchParams.get('startapp');
+    } catch {
+      return null;
+    }
+  }
+  return text;
+}
 
 export function ImportScreen() {
   const screen = useApp((s) => s.screen);
@@ -26,33 +41,41 @@ export function ImportScreen() {
     Object.fromEntries(incoming.map((_, i) => [i, true])),
   );
   const [confirmReplace, setConfirmReplace] = useState(false);
+  const swipeBack = useSwipeBack(() => {
+    if (mode === 'camera') {
+      stopCamera();
+      setMode(null);
+      return;
+    }
+    setScreen({ name: 'registry' });
+  });
 
   const cameraRef = useRef<HTMLVideoElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef(0);
 
-  useEffect(() => {
-    return () => {
-      streamRef.current?.getTracks().forEach((track) => track.stop());
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
+  useEffect(() => stopCamera, []);
 
   const acceptPayload = (raw: string) => {
-    const groups = decodeCfg(raw);
+    const cfg = extractCfg(raw);
+    const groups = cfg ? decodeCfg(cfg) : null;
+    stopCamera();
     if (!groups) {
       setError(t(lang, 'scanInvalid'));
       haptic('warn');
       return;
     }
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    cancelAnimationFrame(rafRef.current);
-    streamRef.current = null;
     setMode(null);
     setError(null);
     useApp.getState().setScreen({ name: 'importPreview', groups });
     haptic('notify');
+  };
+
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    cancelAnimationFrame(rafRef.current);
   };
 
   const startCamera = async () => {
@@ -102,12 +125,14 @@ export function ImportScreen() {
       setError(t(lang, 'scanInvalid'));
       return;
     }
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.drawImage(bitmap, 0, 0);
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const found = jsQR(img.data, img.width, img.height);
     if (found?.data) acceptPayload(found.data);
@@ -127,13 +152,13 @@ export function ImportScreen() {
   };
 
   return (
-    <main className="relative flex h-full flex-col bg-bg">
+    <main className="relative flex h-full flex-col bg-bg" {...swipeBack}>
       <header className="flex items-center gap-3 px-4 pb-2 pt-5">
         <button
           type="button"
           className="text-2xl leading-none text-fg-muted"
           onClick={() => {
-            streamRef.current?.getTracks().forEach((track) => track.stop());
+            stopCamera();
             setScreen({ name: 'registry' });
           }}
         >
@@ -241,9 +266,7 @@ export function ImportScreen() {
             type="button"
             className="absolute right-4 top-4 rounded-full bg-black/60 px-3 py-1.5 text-sm text-white"
             onClick={() => {
-              streamRef.current?.getTracks().forEach((track) => track.stop());
-              streamRef.current = null;
-              cancelAnimationFrame(rafRef.current);
+              stopCamera();
               setMode(null);
             }}
           >

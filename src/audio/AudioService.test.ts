@@ -11,6 +11,8 @@ let actions: string[];
 const fakeAudioEl = (id: string): MinimalAudioEl => ({
   preload: '',
   currentTime: 0,
+  loop: false,
+  volume: 1,
   play() {
     calls.push({ id, op: 'play' });
     return Promise.resolve();

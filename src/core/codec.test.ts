@@ -27,6 +27,17 @@ describe('codec', () => {
     expect(decoded[0].name!.length).toBe(40);
   });
 
+  it('roundtrips tags and deduplicates them', () => {
+    const groups = [g({ tags: ['Маша', 'вечер', 'Маша  '] })];
+    const decoded = decodeCfg(encodeGroups(groups))!;
+    expect(decoded[0].tags).toEqual(['Маша', 'вечер']);
+  });
+
+  it('decodes legacy payloads without tags', () => {
+    const legacy = decodeCfg(encodeGroups([g()]))!;
+    expect(legacy[0].tags).toBeUndefined();
+  });
+
   it('regenerates ids on decode', () => {
     const decoded = decodeCfg(encodeGroups([g()]))!;
     expect(decoded[0].id).not.toBe('x1');

@@ -6,17 +6,33 @@ import type { GroupConfig } from './types';
 export const STARTAPP_BUDGET = 512;
 export const QR_BUDGET = 1200;
 
-type WireGroup = [name: string | 0, startSec: number, count: number, incSec: number];
+type WireGroup = [name: string | 0, startSec: number, count: number, incSec: number, tags?: string[]];
 
 function toWire(groups: GroupConfig[]): { v: 1; g: WireGroup[] } {
   return {
     v: 1,
-    g: groups.map((g) => [g.name ? g.name : 0, g.startSec, g.count, g.incSec] as WireGroup),
+    g: groups.map((g) => {
+      const wire: WireGroup = [g.name ? g.name : 0, g.startSec, g.count, g.incSec];
+      if (g.tags && g.tags.length > 0) wire.push(g.tags);
+      return wire;
+    }),
   };
 }
 
 export function encodeGroups(groups: GroupConfig[]): string {
   return LZString.compressToEncodedURIComponent(JSON.stringify(toWire(groups)));
+}
+
+export function sanitizeTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    if (typeof item !== 'string') continue;
+    const tag = item.trim().slice(0, LIMITS.tagMax);
+    if (tag.length > 0) seen.add(tag);
+    if (seen.size >= LIMITS.tagsPerGroupMax) break;
+  }
+  return [...seen];
 }
 
 function clampNum(v: unknown, min: number, max: number, fallback: number, step: number): number {
@@ -27,7 +43,7 @@ function clampNum(v: unknown, min: number, max: number, fallback: number, step: 
 
 function parseGroup(item: unknown): GroupConfig | null {
   if (!Array.isArray(item) || item.length < 4) return null;
-  const [name, startSec, count, incSec] = item;
+  const [name, startSec, count, incSec, tags] = item;
   if (typeof startSec !== 'number' || typeof count !== 'number' || typeof incSec !== 'number') {
     return null;
   }
@@ -40,6 +56,8 @@ function parseGroup(item: unknown): GroupConfig | null {
   if (typeof name === 'string' && name.trim().length > 0) {
     group.name = name.trim().slice(0, LIMITS.nameMax);
   }
+  const cleanTags = sanitizeTags(tags);
+  if (cleanTags.length > 0) group.tags = cleanTags;
   return group;
 }
 

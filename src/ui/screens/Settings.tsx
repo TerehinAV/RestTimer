@@ -2,12 +2,14 @@ import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import type { LangMode, ThemeMode } from '../../core/types';
 import { haptic } from '../../tg/tg';
+import { useSwipeBack } from '../useSwipeBack';
 
 export function SettingsScreen() {
   const settings = useApp((s) => s.settings);
   const updateSettings = useApp((s) => s.updateSettings);
   const lang = useApp((s) => s.lang);
   const setScreen = useApp((s) => s.setScreen);
+  const swipeBack = useSwipeBack(() => setScreen({ name: 'registry' }));
 
   const pick = <T,>(value: T, apply: () => void) => () => {
     haptic('select');
@@ -15,7 +17,7 @@ export function SettingsScreen() {
   };
 
   return (
-    <main className="flex h-full flex-col bg-bg">
+    <main className="flex h-full flex-col bg-bg" {...swipeBack}>
       <header className="flex items-center gap-3 px-4 pb-2 pt-5">
         <button type="button" className="text-2xl leading-none text-fg-muted" onClick={() => setScreen({ name: 'registry' })}>
           ‹
@@ -53,6 +55,11 @@ export function SettingsScreen() {
         <section className="space-y-2">
           <ToggleRow label={t(lang, 'voiceTitle')} on={settings.voiceOn} onChange={(on) => updateSettings({ voiceOn: on })} />
           <ToggleRow label={t(lang, 'beepsTitle')} on={settings.beepsOn} onChange={(on) => updateSettings({ beepsOn: on })} />
+          <ToggleRow
+            label={t(lang, 'headsetTitle')}
+            on={settings.mediaKeepAlive}
+            onChange={(on) => updateSettings({ mediaKeepAlive: on })}
+          />
         </section>
       </div>
     </main>

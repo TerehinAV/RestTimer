@@ -14,6 +14,7 @@ type TgWebApp = {
   openTelegramLink(url: string): void;
   contentSafeAreaInsetTop?: number;
   contentSafeAreaInsetBottom?: number;
+  headerHeight?: number;
   onEvent?(event: string, handler: () => void): void;
 };
 
@@ -81,18 +82,22 @@ export function tgReady(): void {
   }
 }
 
-export function contentSafeArea(): { top: number; bottom: number } | null {
-  const app = tg();
-  if (!app || typeof app.contentSafeAreaInsetTop !== 'number') return null;
-  return { top: app.contentSafeAreaInsetTop, bottom: app.contentSafeAreaInsetBottom ?? 0 };
-}
+const TG_HEADER_MIN_PX = 56;
 
 export function applyContentSafeArea(): void {
   if (typeof document === 'undefined') return;
-  const insets = contentSafeArea();
+  const app = tg();
+  let top = 0;
+  let bottom = 0;
+  if (app) {
+    if (typeof app.contentSafeAreaInsetTop === 'number') top = Math.max(top, app.contentSafeAreaInsetTop);
+    if (typeof app.contentSafeAreaInsetBottom === 'number') bottom = Math.max(bottom, app.contentSafeAreaInsetBottom);
+    if (typeof app.headerHeight === 'number') top = Math.max(top, app.headerHeight);
+    top = Math.max(top, TG_HEADER_MIN_PX);
+  }
   const root = document.documentElement;
-  root.style.setProperty('--tg-inset-top', insets ? `${insets.top}px` : '0px');
-  root.style.setProperty('--tg-inset-bottom', insets ? `${insets.bottom}px` : '0px');
+  root.style.setProperty('--tg-inset-top', `${top}px`);
+  root.style.setProperty('--tg-inset-bottom', `${bottom}px`);
 }
 
 export function watchContentSafeArea(): void {

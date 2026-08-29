@@ -46,6 +46,7 @@ function handleEngineEvent(e: EngineEvent): void {
   switch (e.type) {
     case 'snapshot': {
       app.mirrorRuns(e.runs, getEngine().focusedRunId);
+      syncKeepAlive();
       const focused = e.runs.find((r) => r.runId === getEngine().focusedRunId);
       const status = focused?.timers[focused.current]?.status;
       audio!.syncMediaState(status === 'running' ? 'playing' : status === 'paused' ? 'paused' : 'none');
@@ -74,6 +75,11 @@ function handleEngineEvent(e: EngineEvent): void {
   }
 }
 
+function syncKeepAlive(): void {
+  const active = useApp.getState().settings.mediaKeepAlive && getEngine().size > 0;
+  audio!.setKeepAlive(active);
+}
+
 export function boot(): void {
   if (engine) return;
   tgReady();
@@ -100,6 +106,10 @@ export function boot(): void {
   useApp.getState().setLang(resolveLang(app.settings.langMode, tgLocale(), navLangs()));
 
   document.addEventListener('pointerdown', () => audio!.unlock(), { once: true, capture: true });
+
+  useApp.subscribe((state, prev) => {
+    if (state.settings.mediaKeepAlive !== prev.settings.mediaKeepAlive) syncKeepAlive();
+  });
 
   const raw = new URLSearchParams(window.location.search).get('cfg') ?? tgStartParam();
   if (raw) {

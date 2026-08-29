@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { nanoid } from 'nanoid';
 import { fmtMs, plannedMs } from '../../core/time';
 import { LIMITS } from '../../core/types';
 import type { GroupConfig } from '../../core/types';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
+import { useSwipeBack } from '../useSwipeBack';
 import { haptic } from '../../tg/tg';
 import { Wheel } from '../components/Wheel';
 import type { WheelItem } from '../components/Wheel';
@@ -24,12 +25,16 @@ export function MasterScreen() {
   const saveCustomPreset = useApp((s) => s.saveCustomPreset);
 
   const [step, setStep] = useState(0);
+  const swipeBack = useSwipeBack(() => (step === 0 ? setScreen({ name: 'registry' }) : setStep(step - 1)));
   const [startSec, setStartSec] = useState(() =>
     Math.min(LIMITS.startSecMax, Math.max(LIMITS.startSecMin, existing?.startSec ?? 60)),
   );
   const [count, setCount] = useState(existing?.count ?? 8);
   const [incSec, setIncSec] = useState(existing?.incSec ?? 0);
   const [name, setName] = useState(existing?.name ?? '');
+  const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
+  const [tagDraft, setTagDraft] = useState('');
+  const savedRef = useRef(false);
 
   const presetValues = useMemo(
     () => [...customPresets.map((p) => p.startSec), 30, 45, 60, 90, 120, 180].filter((v, i, arr) => arr.indexOf(v) === i),
@@ -42,13 +47,29 @@ export function MasterScreen() {
   const minutes = Math.floor(startSec / 60);
   const seconds = startSec % 60;
 
+  const allTags = useMemo(
+    () => [...new Set(useApp.getState().registry.groups.flatMap((gr) => gr.tags ?? []))].slice(0, 24),
+    [],
+  );
+
+  const addTag = () => {
+    const tag = tagDraft.trim().slice(0, LIMITS.tagMax);
+    if (tag === '' || tags.includes(tag) || tags.length >= LIMITS.tagsPerGroupMax) return;
+    setTags([...tags, tag]);
+    setTagDraft('');
+    haptic('select');
+  };
+
   const save = () => {
+    if (savedRef.current) return;
+    savedRef.current = true;
     const final: GroupConfig = {
       id: existing?.id ?? nanoid(8),
       name: name.trim() === '' ? undefined : name.trim().slice(0, LIMITS.nameMax),
       startSec: Math.max(LIMITS.startSecMin, startSec),
       count,
       incSec,
+      tags: tags.length > 0 ? tags : undefined,
     };
     saveGroup(final);
     haptic('notify');
@@ -56,7 +77,10 @@ export function MasterScreen() {
   };
 
   return (
-    <main className="flex h-full flex-col bg-bg px-4 pb-6 pt-4">
+    <main
+      className="flex h-full flex-col bg-bg px-4 pb-6 pt-4"
+      {...swipeBack}
+    >
       <header className="mb-2 flex items-center justify-between">
         <button
           type="button"
@@ -151,6 +175,67 @@ export function MasterScreen() {
               placeholder={t(lang, 'namePlaceholder')}
               className="w-full rounded-xl border border-card-border bg-card px-4 py-3 text-base outline-none placeholder:text-fg-faint focus:border-accent"
             />
+          </div>
+          <div>
+            <h2 className="mb-2 text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'tagsLabel')}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              {tags.map((tag) => (
+                <button
+                  key={tag}
+                  type="button"
+                  className="flex items-center gap-1 rounded-full bg-accent-soft px-3 py-1.5 text-sm text-accent active:opacity-70"
+                  onClick={() => {
+                    haptic('select');
+                    setTags(tags.filter((x) => x !== tag));
+                  }}
+                >
+                  {tag} ✕
+                </button>
+              ))}
+              {tags.length < LIMITS.tagsPerGroupMax && (
+                <div className="flex items-center gap-1">
+                  <input
+                    value={tagDraft}
+                    onChange={(e) => setTagDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addTag();
+                      }
+                    }}
+                    maxLength={LIMITS.tagMax}
+                    placeholder={t(lang, 'tagPlaceholder')}
+                    className="w-28 rounded-full border border-card-border bg-card px-3 py-1.5 text-sm outline-none placeholder:text-fg-faint focus:border-accent"
+                  />
+                  {tagDraft.trim() !== '' && (
+                    <button type="button" className="px-1 text-accent" onClick={addTag}>
+                      +
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+            {allTags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {allTags
+                  .filter((tag) => !tags.includes(tag))
+                  .slice(0, 8)
+                  .map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      className="rounded-full bg-card px-2.5 py-1 text-xs text-fg-muted active:opacity-70"
+                      onClick={() => {
+                        if (tags.length >= LIMITS.tagsPerGroupMax) return;
+                        haptic('select');
+                        setTags([...tags, tag]);
+                      }}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
           <div className="rounded-2xl bg-card p-4 text-center">
             <p className="text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'previewSum')}</p>
