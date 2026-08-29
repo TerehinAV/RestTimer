@@ -1,0 +1,74 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * iOS Clock-inspired palette.
+ * Dark: pure black background, thin huge digits, orange progress / green "running".
+ * Light: #f2f2f7 background, near-black digits.
+ */
+:root {
+  --bg: #f2f2f7;
+  --bg-elev: #ffffff;
+  --fg: #0b0b0c;
+  --fg-muted: #8a8a8e;
+  --fg-faint: #c5c5ca;
+  --card: #ffffff;
+  --card-border: #e2e2e7;
+  --accent: #ff9500; /* systemOrange (light) */
+  --accent-soft: rgba(255, 149, 0, 0.14);
+  --go: #34c759; /* systemGreen (light) */
+  --go-soft: rgba(52, 199, 89, 0.14);
+  --warn: #ff3b30; /* systemRed */
+  --sep: rgba(0, 0, 0, 0.08);
+}
+
+.dark {
+  --bg: #000000;
+  --bg-elev: #1c1c1e;
+  --fg: #ffffff;
+  --fg-muted: #8d8d93;
+  --fg-faint: #48484a;
+  --card: #1c1c1e;
+  --card-border: #2c2c2e;
+  --accent: #ff9f0a; /* systemOrange (dark) */
+  --accent-soft: rgba(255, 159, 10, 0.16);
+  --go: #30d158; /* systemGreen (dark) */
+  --go-soft: rgba(48, 209, 88, 0.16);
+  --warn: #ff453a;
+  --sep: rgba(255, 255, 255, 0.1);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-faint: var(--fg-faint);
+  --color-card: var(--card);
+  --color-card-border: var(--card-border);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-go: var(--go);
+  --color-go-soft: var(--go-soft);
+  --color-warn: var(--warn);
+  --color-sep: var(--sep);
+  --font-mono-timer: ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  user-select: none;
+}
