@@ -12,6 +12,9 @@ type TgWebApp = {
     selectionChanged(): void;
   };
   openTelegramLink(url: string): void;
+  contentSafeAreaInsetTop?: number;
+  contentSafeAreaInsetBottom?: number;
+  onEvent?(event: string, handler: () => void): void;
 };
 
 export function tg(): TgWebApp | null {
@@ -75,5 +78,30 @@ export function tgReady(): void {
     app.expand();
   } catch {
     /* not ready yet */
+  }
+}
+
+export function contentSafeArea(): { top: number; bottom: number } | null {
+  const app = tg();
+  if (!app || typeof app.contentSafeAreaInsetTop !== 'number') return null;
+  return { top: app.contentSafeAreaInsetTop, bottom: app.contentSafeAreaInsetBottom ?? 0 };
+}
+
+export function applyContentSafeArea(): void {
+  if (typeof document === 'undefined') return;
+  const insets = contentSafeArea();
+  const root = document.documentElement;
+  root.style.setProperty('--tg-inset-top', insets ? `${insets.top}px` : '0px');
+  root.style.setProperty('--tg-inset-bottom', insets ? `${insets.bottom}px` : '0px');
+}
+
+export function watchContentSafeArea(): void {
+  applyContentSafeArea();
+  const app = tg();
+  if (!app || typeof app.onEvent !== 'function') return;
+  try {
+    app.onEvent('contentSafeAreaChanged', applyContentSafeArea);
+  } catch {
+    /* older SDK without this event */
   }
 }

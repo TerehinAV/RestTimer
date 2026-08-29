@@ -4,6 +4,7 @@ import { fmtMs } from '../../core/time';
 import { focusRun, runAction } from '../../boot';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
+import { haptic } from '../../tg/tg';
 import { PrevIcon, RestartIcon, SkipIcon } from '../components/Icons';
 
 export function RunScreen() {
@@ -32,7 +33,12 @@ export function RunScreen() {
   const switchRun = (dir: 1 | -1) => {
     const idx = runs.findIndex((r) => r.runId === run.runId);
     const next = runs[idx + dir];
-    if (next) focusRun(next.runId);
+    if (next) {
+      focusRun(next.runId);
+    } else if (dir === -1) {
+      haptic('tap');
+      setScreen({ name: 'registry' });
+    }
   };
 
   return (

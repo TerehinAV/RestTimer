@@ -6,7 +6,7 @@ import type { EngineEvent } from './engine/TimerEngine';
 import { attachLoop } from './engine/loop';
 import { resolveLang } from './i18n';
 import { useApp } from './store/app';
-import { haptic, tgLocale, tgReady, tgStartParam } from './tg/tg';
+import { haptic, tgLocale, tgReady, tgStartParam, watchContentSafeArea } from './tg/tg';
 import { initTheme, navLangs } from './theme/apply';
 
 let engine: TimerEngine | null = null;
@@ -77,6 +77,7 @@ function handleEngineEvent(e: EngineEvent): void {
 export function boot(): void {
   if (engine) return;
   tgReady();
+  watchContentSafeArea();
 
   audio = new AudioService({
     lang: () => useApp.getState().lang,
