@@ -9,16 +9,18 @@ let state: { lang: 'ru' | 'en'; voice: boolean; beeps: boolean };
 let actions: string[];
 
 const fakeAudioEl = (id: string): MinimalAudioEl => ({
+  src: id,
   preload: '',
   currentTime: 0,
   loop: false,
   volume: 1,
+  load() {},
   play() {
-    calls.push({ id, op: 'play' });
+    calls.push({ id: this.src, op: 'play' });
     return Promise.resolve();
   },
   pause() {
-    calls.push({ id, op: 'pause' });
+    calls.push({ id: this.src, op: 'pause' });
   },
 });
 
@@ -72,9 +74,9 @@ describe('AudioService', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     const plays = calls.filter((c) => c.op === 'play');
     const pauses = calls.filter((c) => c.op === 'pause');
-    expect(plays).toHaveLength(25);
-    expect(pauses).toHaveLength(25);
-    expect(plays.some((c) => c.id.startsWith('data:audio/wav'))).toBe(true);
+    expect(plays).toHaveLength(1);
+    expect(pauses).toHaveLength(1);
+    expect(plays[0].id.startsWith('data:audio/wav')).toBe(true);
     expect(svc.isUnlocked).toBe(true);
   });
 

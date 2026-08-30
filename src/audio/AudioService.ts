@@ -21,10 +21,12 @@ export type BeepKind = 'end' | 'tick' | 'chime';
 export type PlaybackState = 'playing' | 'paused' | 'none';
 
 export type MinimalAudioEl = {
+  src: string;
   preload: string;
   currentTime: number;
   loop: boolean;
   volume: number;
+  load(): void;
   play(): Promise<void>;
   pause(): void;
 };
@@ -73,7 +75,7 @@ const defaultCtxFactory = (): MinimalAudioCtx => {
 
 const KEEPALIVE_TONE_AMPLITUDE = 300;
 
-function silentLoopWavDataUri(): string {
+function silentLoopWavDataUri(amplitude = KEEPALIVE_TONE_AMPLITUDE): string {
   const sr = 8000;
   const samples = Math.floor(sr * 0.5);
   const view = new DataView(new ArrayBuffer(44 + samples * 2));
@@ -95,7 +97,7 @@ function silentLoopWavDataUri(): string {
   view.setUint32(40, samples * 2, true);
   const cycles = 4;
   for (let i = 0; i < samples; i += 1) {
-    const wave = Math.sin((2 * Math.PI * cycles * i) / samples) * KEEPALIVE_TONE_AMPLITUDE;
+    const wave = Math.sin((2 * Math.PI * cycles * i) / samples) * amplitude;
     view.setInt16(44 + i * 2, Math.round(wave), true);
   }
   const bytes = new Uint8Array(view.buffer);
@@ -110,9 +112,8 @@ const defaultAudioElFactory = (url: string): MinimalAudioEl =>
 export class AudioService {
   private deps: AudioDeps;
   private ctx: MinimalAudioCtx | null = null;
-  private pool = new Map<string, MinimalAudioEl>();
+  private voiceEl: MinimalAudioEl | null = null;
   private keepAliveEl: MinimalAudioEl | null = null;
-  private currentVoiceEl: MinimalAudioEl | null = null;
   private unlocked = false;
 
   constructor(deps: AudioDeps) {
@@ -145,9 +146,8 @@ export class AudioService {
         this.ctx = null;
       }
     }
-    this.primeVoices();
+    this.activateEl(this.ensureVoiceEl());
     this.attachMediaSession();
-    this.activateEl(this.ensureKeepAliveEl());
   }
 
   private activateEl(el: MinimalAudioEl): void {
@@ -157,6 +157,16 @@ export class AudioService {
       .play()
       .then(() => el.pause())
       .catch(() => undefined);
+  }
+
+  private ensureVoiceEl(): MinimalAudioEl {
+    if (this.voiceEl) return this.voiceEl;
+    const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
+    const el = factory(silentLoopWavDataUri(0));
+    el.loop = false;
+    el.preload = 'auto';
+    this.voiceEl = el;
+    return el;
   }
 
   private ensureKeepAliveEl(): MinimalAudioEl {
@@ -174,22 +184,19 @@ export class AudioService {
 
   voice(key: VoiceKey): void {
     if (!this.deps.voiceOn()) return;
-    diagCount(`voice.${this.deps.lang()}.${key}`);
-    const el = this.pool.get(`${this.deps.lang()}/${key}`);
-    if (!el) {
-      diag('voice.missingPool', key);
-      return;
+    const lang = this.deps.lang();
+    diagCount(`voice.${lang}.${key}`);
+    const el = this.ensureVoiceEl();
+    try {
+      el.pause();
+      el.src = AudioService.urlFor(lang, key);
+      el.loop = false;
+      el.load();
+      el.currentTime = 0;
+      void el.play().catch((err) => diag('voice.playFail', { key, err: String(err).slice(0, 120) }));
+    } catch (err) {
+      diag('voice.channelFail', { key, err: String(err).slice(0, 120) });
     }
-    if (this.currentVoiceEl && this.currentVoiceEl !== el) {
-      try {
-        this.currentVoiceEl.pause();
-      } catch {
-        /* already stopped */
-      }
-    }
-    this.currentVoiceEl = el;
-    el.currentTime = 0;
-    void el.play().catch((err) => diag('voice.playFail', { key, err: String(err).slice(0, 120) }));
   }
 
   beep(kind: BeepKind): void {
@@ -236,24 +243,6 @@ export class AudioService {
       return this.ctx;
     } catch {
       return null;
-    }
-  }
-
-  private primeVoices(): void {
-    const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
-    for (const lang of ['ru', 'en'] as const) {
-      for (const key of VOICE_KEYS) {
-        const id = `${lang}/${key}`;
-        if (this.pool.has(id)) continue;
-        try {
-          const el = factory(AudioService.urlFor(lang, key));
-          el.preload = 'auto';
-          this.pool.set(id, el);
-          this.activateEl(el);
-        } catch {
-          /* missing files degrade to beeps only */
-        }
-      }
     }
   }
 
