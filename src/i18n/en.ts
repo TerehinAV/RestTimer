@@ -37,6 +37,7 @@ export const en: Dict = {
   presetsLabel: 'Presets',
   customPresetsLabel: 'My presets',
   savePreset: 'Save preset',
+  deletePreset: 'Delete preset',
   presetSaved: 'Preset saved',
   presetLimit: 'Up to 6 presets — oldest get evicted',
   min: 'min',

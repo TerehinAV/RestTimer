@@ -91,6 +91,18 @@ describe('AudioService', () => {
     expect(calls.filter((c) => c.op === 'play').at(-1)!.id).toContain('/en/start.mp3');
   });
 
+  it('new voice stops the previous one (single channel)', () => {
+    const svc = makeService();
+    svc.unlock();
+    calls.length = 0;
+    svc.voice('start');
+    svc.voice('end');
+    const startPauses = calls.filter((c) => c.id.includes('/ru/start.mp3') && c.op === 'pause');
+    expect(startPauses).toHaveLength(1);
+    const endPlays = calls.filter((c) => c.id.includes('/ru/end.mp3') && c.op === 'play');
+    expect(endPlays).toHaveLength(1);
+  });
+
   it('voice is suppressed when disabled in settings', () => {
     const svc = makeService();
     svc.unlock();

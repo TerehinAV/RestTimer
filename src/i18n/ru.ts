@@ -35,6 +35,7 @@ export const ru = {
   presetsLabel: 'Пресеты',
   customPresetsLabel: 'Мои пресеты',
   savePreset: 'Сохранить пресет',
+  deletePreset: 'Удалить пресет',
   presetSaved: 'Пресет сохранён',
   presetLimit: 'Максимум 6 пресетов — старые вытесняются',
   min: 'мин',

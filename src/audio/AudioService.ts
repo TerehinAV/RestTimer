@@ -112,6 +112,7 @@ export class AudioService {
   private ctx: MinimalAudioCtx | null = null;
   private pool = new Map<string, MinimalAudioEl>();
   private keepAliveEl: MinimalAudioEl | null = null;
+  private currentVoiceEl: MinimalAudioEl | null = null;
   private unlocked = false;
 
   constructor(deps: AudioDeps) {
@@ -179,6 +180,14 @@ export class AudioService {
       diag('voice.missingPool', key);
       return;
     }
+    if (this.currentVoiceEl && this.currentVoiceEl !== el) {
+      try {
+        this.currentVoiceEl.pause();
+      } catch {
+        /* already stopped */
+      }
+    }
+    this.currentVoiceEl = el;
     el.currentTime = 0;
     void el.play().catch((err) => diag('voice.playFail', { key, err: String(err).slice(0, 120) }));
   }

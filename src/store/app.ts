@@ -32,6 +32,7 @@ type AppState = {
   applyImport: (groups: GroupConfig[], mode: 'merge' | 'replace') => void;
   updateSettings: (patch: Partial<Settings>) => void;
   saveCustomPreset: (startSec: number) => void;
+  removeCustomPreset: (id: string) => void;
   mirrorRuns: (runs: RunSnapshot[], focusedRunId: string | null) => void;
 };
 
@@ -80,6 +81,9 @@ export const useApp = create<AppState>()(
         const presets = get().customPresets.filter((p) => p.startSec !== startSec);
         presets.unshift({ id: nanoid(6), startSec });
         set({ customPresets: presets.slice(0, LIMITS.customPresetsMax) });
+      },
+      removeCustomPreset: (id) => {
+        set({ customPresets: get().customPresets.filter((p) => p.id !== id) });
       },
       mirrorRuns: (runs, focusedRunId) => set({ runs, focusedRunId }),
     }),

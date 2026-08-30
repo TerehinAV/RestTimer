@@ -23,6 +23,7 @@ export function MasterScreen() {
   const lang = useApp((s) => s.lang);
   const customPresets = useApp((s) => s.customPresets);
   const saveCustomPreset = useApp((s) => s.saveCustomPreset);
+  const removeCustomPreset = useApp((s) => s.removeCustomPreset);
 
   const [step, setStep] = useState(0);
   const swipeBack = useSwipeBack(() => (step === 0 ? setScreen({ name: 'registry' }) : setStep(step - 1)));
@@ -37,8 +38,11 @@ export function MasterScreen() {
   const [tagDraft, setTagDraft] = useState('');
   const savedRef = useRef(false);
 
+  const standardPresets = [30, 45, 60, 90, 120, 180];
+  const customMatch = customPresets.find((p) => p.startSec === startSec);
+  const isStandard = standardPresets.includes(startSec);
   const presetValues = useMemo(
-    () => [...customPresets.map((p) => p.startSec), 30, 45, 60, 90, 120, 180].filter((v, i, arr) => arr.indexOf(v) === i),
+    () => [...customPresets.map((p) => p.startSec), ...standardPresets].filter((v, i, arr) => arr.indexOf(v) === i),
     [customPresets],
   );
 
@@ -134,16 +138,30 @@ export function MasterScreen() {
                 setStartSec(v);
               }}
             />
-            <button
-              type="button"
-              className="w-full rounded-full bg-accent-soft px-3 py-2 text-xs text-accent active:opacity-70"
-              onClick={() => {
-                saveCustomPreset(startSec);
-                haptic('notify');
-              }}
-            >
-              {t(lang, 'savePreset')}
-            </button>
+            {customMatch && (
+              <button
+                type="button"
+                className="w-full rounded-full bg-card px-3 py-2 text-xs text-warn active:opacity-70"
+                onClick={() => {
+                  removeCustomPreset(customMatch.id);
+                  haptic('warn');
+                }}
+              >
+                {t(lang, 'deletePreset')}
+              </button>
+            )}
+            {!customMatch && !isStandard && (
+              <button
+                type="button"
+                className="w-full rounded-full bg-accent-soft px-3 py-2 text-xs text-accent active:opacity-70"
+                onClick={() => {
+                  saveCustomPreset(startSec);
+                  haptic('notify');
+                }}
+              >
+                {t(lang, 'savePreset')}
+              </button>
+            )}
           </div>
         </section>
       )}
