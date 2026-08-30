@@ -46,6 +46,7 @@ export const ru = {
   cancel: 'Отмена',
   save: 'Сохранить',
   done: 'Готово',
+  next: 'Далее',
   tapToStart: 'Нажмите, чтобы начать',
   paused: 'Пауза',
   resting: 'Отдых',

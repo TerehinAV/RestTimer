@@ -48,6 +48,7 @@ export const en: Dict = {
   cancel: 'Cancel',
   save: 'Save',
   done: 'Done',
+  next: 'Next',
   tapToStart: 'Tap to start',
   paused: 'Paused',
   resting: 'Rest',

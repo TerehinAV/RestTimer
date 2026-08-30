@@ -1,11 +1,11 @@
 import { useMemo, useRef, useState } from 'react';
+import type { TouchEvent } from 'react';
 import { nanoid } from 'nanoid';
 import { fmtMs, plannedMs } from '../../core/time';
 import { LIMITS } from '../../core/types';
 import type { GroupConfig } from '../../core/types';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
-import { useSwipeBack } from '../useSwipeBack';
 import { haptic } from '../../tg/tg';
 import { Wheel } from '../components/Wheel';
 import type { WheelItem } from '../components/Wheel';
@@ -30,7 +30,7 @@ export function MasterScreen() {
   const registryGroups = useApp((s) => s.registry.groups);
 
   const [step, setStep] = useState(0);
-  const swipeBack = useSwipeBack(() => (step === 0 ? setScreen({ name: 'registry' }) : setStep(step - 1)));
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const [startSec, setStartSec] = useState(() =>
     Math.min(LIMITS.startSecMax, Math.max(LIMITS.startSecMin, existing?.startSec ?? 60)),
   );
@@ -71,6 +71,39 @@ export function MasterScreen() {
     haptic('select');
   };
 
+  const onSwipeStart = (e: TouchEvent) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      swipeStart.current = null;
+      return;
+    }
+    const touch = e.touches[0];
+    swipeStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const onSwipeEnd = (e: TouchEvent) => {
+    const start = swipeStart.current;
+    swipeStart.current = null;
+    if (!start) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - start.x;
+    const dy = Math.abs(touch.clientY - start.y);
+    if (Math.abs(dx) < 64 || Math.abs(dx) < dy * 1.5) return;
+    if (dx < 0 && step < 2) {
+      haptic('select');
+      setStep(step + 1);
+      return;
+    }
+    if (dx > 0 && step > 0) {
+      haptic('select');
+      setStep(step - 1);
+      return;
+    }
+    if (dx > 0 && step === 0 && start.x < 48) {
+      haptic('tap');
+      setScreen({ name: 'registry' });
+    }
+  };
+
   const save = () => {
     if (savedRef.current) return;
     savedRef.current = true;
@@ -91,7 +124,8 @@ export function MasterScreen() {
   return (
     <main
       className="flex h-full flex-col bg-bg px-4 pb-safe pt-4"
-      {...swipeBack}
+      onTouchStart={onSwipeStart}
+      onTouchEnd={onSwipeEnd}
     >
       <header className="mb-2 flex items-center justify-between">
         <button
@@ -323,7 +357,7 @@ export function MasterScreen() {
         className="mt-4 w-full rounded-2xl bg-go py-4 text-base font-semibold text-black active:opacity-80"
         onClick={() => (step === 2 ? save() : setStep(step + 1))}
       >
-        {step === 2 ? t(lang, 'save') : t(lang, 'done')}
+        {step === 2 ? t(lang, 'save') : t(lang, 'next')}
       </button>
     </main>
   );
