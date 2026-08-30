@@ -39,6 +39,10 @@
   --sep: rgba(255, 255, 255, 0.1);
 }
 
+@utility pb-safe {
+  padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-bg-elev: var(--bg-elev);

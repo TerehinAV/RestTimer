@@ -79,7 +79,7 @@ export function SettingsScreen() {
         </section>
       </div>
 
-      <div className="relative px-4 pb-6">
+      <div className="relative px-4 pb-safe">
         <button
           type="button"
           className="w-full select-none text-center text-xs text-fg-faint active:opacity-60"

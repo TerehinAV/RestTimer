@@ -116,7 +116,17 @@ export function RunScreen() {
           {fmtMs(timer?.remainMs ?? 0)}
         </p>
 
-        <div className="mt-4 h-6">
+        <div className="mt-3 grid w-full grid-cols-3 px-8 text-xs">
+          <span className="text-left text-fg-faint line-through">
+            {t(lang, 'setWord')} {run.current + 1}
+          </span>
+          <span className="text-center text-fg-faint">→</span>
+          <span className="text-right text-fg-muted">
+            {t(lang, 'setWord')} {run.current + 2}
+          </span>
+        </div>
+
+        <div className="mt-3 h-6">
           {status === 'waiting' && (
             <p className="animate-pulse text-sm text-fg-muted">{t(lang, 'tapToStart')}</p>
           )}
@@ -163,7 +173,7 @@ export function RunScreen() {
         </div>
       </section>
 
-      <footer className="px-6 pb-8">
+      <footer className="px-6 pb-safe">
         <div className="mb-2 flex items-center justify-center text-xs text-fg-muted">
           <span className="font-mono-timer tabular-nums">
             {run.current + 1}/{run.timers.length}

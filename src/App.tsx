@@ -61,7 +61,7 @@ function EnvironmentSync() {
 export default function App() {
   const screen = useApp((s) => s.screen);
   return (
-    <div className="h-full pt-[max(env(safe-area-inset-top),var(--tg-inset-top,0px))] pb-[max(env(safe-area-inset-bottom),var(--tg-inset-bottom,0px))]">
+    <div className="h-full pt-[max(env(safe-area-inset-top),var(--tg-inset-top,0px))]">
       <EnvironmentSync />
       <AnimatePresence mode="wait" initial={false}>
         <motion.div

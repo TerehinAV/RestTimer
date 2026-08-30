@@ -81,7 +81,7 @@ export function MasterScreen() {
 
   return (
     <main
-      className="flex h-full flex-col bg-bg px-4 pb-6 pt-4"
+      className="flex h-full flex-col bg-bg px-4 pb-safe pt-4"
       {...swipeBack}
     >
       <header className="mb-2 flex items-center justify-between">

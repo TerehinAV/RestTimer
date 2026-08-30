@@ -33,7 +33,7 @@ export function SummaryScreen() {
   };
 
   return (
-    <main className="flex h-full flex-col bg-bg px-6 pb-8 pt-6" {...swipeBack}>
+    <main className="flex h-full flex-col bg-bg px-6 pb-safe pt-6" {...swipeBack}>
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 text-center">
         <p className="text-xs uppercase tracking-[0.3em] text-go">✓ {t(lang, 'summaryTitle')}</p>
         {run.label && <h1 className="text-xl font-semibold">{run.label}</h1>}

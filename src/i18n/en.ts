@@ -31,6 +31,7 @@ export const en: Dict = {
   tagPlaceholder: 'tag name',
   tagAll: 'All',
   headsetTitle: 'Headset button (Bluetooth)',
+  setWord: 'Set',
   diagCopied: 'Diagnostics copied',
   diagManual: 'Copy the text below manually',
   presetsLabel: 'Presets',

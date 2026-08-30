@@ -166,7 +166,7 @@ export function RegistryScreen() {
         )}
       </div>
 
-      <div className="px-4 pb-6">
+      <div className="px-4 pb-safe">
         <button
           type="button"
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-go py-4 text-base font-semibold text-black active:opacity-80"

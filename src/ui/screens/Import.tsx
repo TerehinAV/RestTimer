@@ -242,7 +242,7 @@ export function ImportScreen() {
             </ul>
           </div>
 
-          <div className="space-y-2.5 px-4 pb-6">
+          <div className="space-y-2.5 px-4 pb-safe">
             <button
               type="button"
               disabled={!Object.values(selected).some(Boolean)}
