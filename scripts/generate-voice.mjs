@@ -10,6 +10,9 @@ const HASHES_PATH = path.join(AUDIO_DIR, '.hashes.json');
 
 const manifest = JSON.parse(await readFile(MANIFEST_PATH, 'utf8'));
 const dryRun = process.argv.includes('--dry-run');
+const onlyIdx = process.argv.indexOf('--only');
+const only = onlyIdx >= 0 ? process.argv[onlyIdx + 1] : null;
+const onlyFilter = only ? new Set(only.split(',').map((s) => s.trim())) : null;
 const apiKey = process.env.OPENAI_API_KEY;
 
 if (!apiKey && !dryRun) {
@@ -33,6 +36,7 @@ let created = 0;
 let skipped = 0;
 
 for (const { key, lang, text } of jobs) {
+  if (onlyFilter && !onlyFilter.has(`${key}:${lang}`) && !onlyFilter.has(key) && !onlyFilter.has(lang)) continue;
   const dir = path.join(AUDIO_DIR, lang);
   const file = path.join(dir, `${key}.mp3`);
   const hash = createHash('sha256').update(`${manifest.model}|${manifest.voices[lang]}|${text}`).digest('hex').slice(0, 16);
