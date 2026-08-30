@@ -77,8 +77,10 @@ function handleEngineEvent(e: EngineEvent): void {
   }
 }
 
+const HEADSET_CONTROL_ENABLED = false;
+
 function syncKeepAlive(): void {
-  const active = useApp.getState().settings.mediaKeepAlive && getEngine().hasStartedRuns();
+  const active = HEADSET_CONTROL_ENABLED && useApp.getState().settings.mediaKeepAlive && getEngine().hasStartedRuns();
   audio!.setKeepAlive(active);
 }
 

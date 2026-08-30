@@ -76,11 +76,6 @@ export function SettingsScreen() {
         <section className="space-y-2">
           <ToggleRow label={t(lang, 'voiceTitle')} on={settings.voiceOn} onChange={(on) => updateSettings({ voiceOn: on })} />
           <ToggleRow label={t(lang, 'beepsTitle')} on={settings.beepsOn} onChange={(on) => updateSettings({ beepsOn: on })} />
-          <ToggleRow
-            label={t(lang, 'headsetTitle')}
-            on={settings.mediaKeepAlive}
-            onChange={(on) => updateSettings({ mediaKeepAlive: on })}
-          />
         </section>
       </div>
 
