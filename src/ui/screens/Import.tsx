@@ -4,6 +4,7 @@ import { decodeCfg } from '../../core/codec';
 import { fmtMs, plannedMs } from '../../core/time';
 import type { GroupConfig } from '../../core/types';
 import { getAudio } from '../../boot';
+import { diag, diagCount } from '../../diagnostics/diagnostics';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
@@ -82,6 +83,7 @@ export function ImportScreen() {
     setError(null);
     setMode('camera');
     try {
+      diagCount('scan.camera.start');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
         audio: false,
@@ -92,7 +94,8 @@ export function ImportScreen() {
       video.srcObject = stream;
       await video.play();
       scanLoop(video);
-    } catch {
+    } catch (err) {
+      diag('scan.camera.fail', String(err).slice(0, 160));
       setMode(null);
       setError(t(lang, 'scanDenied'));
     }
@@ -110,6 +113,7 @@ export function ImportScreen() {
         const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const found = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
         if (found?.data) {
+          diag('scan.camera.found', `len=${found.data.length}`);
           acceptPayload(found.data);
           return;
         }
@@ -120,6 +124,7 @@ export function ImportScreen() {
   };
 
   const onFile = async (file: File) => {
+    diagCount('scan.gallery');
     const bitmap = await createImageBitmap(file).catch(() => null);
     if (!bitmap) {
       setError(t(lang, 'scanInvalid'));

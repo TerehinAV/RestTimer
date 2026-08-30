@@ -1,5 +1,5 @@
 export const LIMITS = {
-  startSecMin: 15,
+  startSecMin: 5,
   startSecMax: 1800,
   startStep: 5,
   countMin: 1,

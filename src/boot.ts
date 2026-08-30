@@ -5,6 +5,7 @@ import { TimerEngine } from './engine/TimerEngine';
 import type { EngineEvent } from './engine/TimerEngine';
 import { attachLoop } from './engine/loop';
 import { resolveLang } from './i18n';
+import { diag, diagCount } from './diagnostics/diagnostics';
 import { useApp } from './store/app';
 import { haptic, tgLocale, tgReady, tgStartParam, watchContentSafeArea } from './tg/tg';
 import { initTheme, navLangs } from './theme/apply';
@@ -25,6 +26,7 @@ export function getAudio(): AudioService {
 }
 
 export function startRun(config: GroupConfig): void {
+  diagCount('run.start');
   getEngine().start(config);
   useApp.getState().setScreen({ name: 'run' });
   haptic('notify');
@@ -82,6 +84,10 @@ function syncKeepAlive(): void {
 
 export function boot(): void {
   if (engine) return;
+  diag('boot', { href: location.href });
+  window.addEventListener('error', (e) => diag('error', { msg: e.message, src: e.filename, line: e.lineno }));
+  window.addEventListener('unhandledrejection', (e) => diag('unhandledrejection', String(e.reason).slice(0, 300)));
+  document.addEventListener('visibilitychange', () => diagCount(`visibility.${document.visibilityState}`));
   tgReady();
   watchContentSafeArea();
 
@@ -105,10 +111,24 @@ export function boot(): void {
   initTheme(() => useApp.getState().settings.themeMode);
   useApp.getState().setLang(resolveLang(app.settings.langMode, tgLocale(), navLangs()));
 
-  document.addEventListener('pointerdown', () => audio!.unlock(), { once: true, capture: true });
+  document.addEventListener(
+    'pointerdown',
+    () => {
+      audio!.unlock();
+      syncKeepAlive();
+    },
+    { once: true, capture: true },
+  );
 
   useApp.subscribe((state, prev) => {
-    if (state.settings.mediaKeepAlive !== prev.settings.mediaKeepAlive) syncKeepAlive();
+    if (state.settings.mediaKeepAlive !== prev.settings.mediaKeepAlive) {
+      diag('settings.mediaKeepAlive', state.settings.mediaKeepAlive);
+      syncKeepAlive();
+    }
+    if (state.screen.name !== prev.screen.name) diagCount(`screen.${state.screen.name}`);
+    if (state.registry.groups.length !== prev.registry.groups.length) {
+      diag('registry.size', state.registry.groups.length);
+    }
   });
 
   const raw = new URLSearchParams(window.location.search).get('cfg') ?? tgStartParam();

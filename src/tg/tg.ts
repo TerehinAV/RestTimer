@@ -82,7 +82,7 @@ export function tgReady(): void {
   }
 }
 
-const TG_HEADER_MIN_PX = 56;
+const TG_HEADER_MIN_PX = 72;
 
 export function applyContentSafeArea(): void {
   if (typeof document === 'undefined') return;
@@ -103,10 +103,13 @@ export function applyContentSafeArea(): void {
 export function watchContentSafeArea(): void {
   applyContentSafeArea();
   const app = tg();
-  if (!app || typeof app.onEvent !== 'function') return;
-  try {
-    app.onEvent('contentSafeAreaChanged', applyContentSafeArea);
-  } catch {
-    /* older SDK without this event */
+  if (app && typeof app.onEvent === 'function') {
+    try {
+      app.onEvent('contentSafeAreaChanged', applyContentSafeArea);
+    } catch {
+      /* older SDK without this event */
+    }
   }
+  setTimeout(applyContentSafeArea, 600);
+  setTimeout(applyContentSafeArea, 2500);
 }

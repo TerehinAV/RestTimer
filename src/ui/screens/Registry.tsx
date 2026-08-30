@@ -13,7 +13,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { fmtMs, plannedMs } from '../../core/time';
 import type { GroupConfig } from '../../core/types';
 import { t } from '../../i18n';
-import { startRun, focusRun } from '../../boot';
+import { startRun, focusRun, getEngine } from '../../boot';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
 import { GearIcon, PauseIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, TrashIcon } from '../components/Icons';
@@ -50,6 +50,9 @@ export function RegistryScreen() {
 
   const removeAt = (index: number) => {
     const group = visibleGroups[index];
+    for (const r of useApp.getState().runs) {
+      if (r.configId === group.id) getEngine().dismiss(r.runId);
+    }
     useApp.getState().removeGroup(group.id);
     haptic('warn');
     setDeleted({ group, index });

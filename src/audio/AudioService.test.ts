@@ -66,16 +66,22 @@ beforeEach(() => {
 });
 
 describe('AudioService', () => {
-  it('unlock primes the voice pool for both languages', () => {
+  it('unlock activates the voice pool and keepalive within the gesture', async () => {
     const svc = makeService();
     svc.unlock();
-    expect(calls).toHaveLength(0);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const plays = calls.filter((c) => c.op === 'play');
+    const pauses = calls.filter((c) => c.op === 'pause');
+    expect(plays).toHaveLength(25);
+    expect(pauses).toHaveLength(25);
+    expect(plays.some((c) => c.id.startsWith('data:audio/wav'))).toBe(true);
     expect(svc.isUnlocked).toBe(true);
   });
 
   it('voice plays the file for the current language and resets time', () => {
     const svc = makeService();
     svc.unlock();
+    calls.length = 0;
     svc.voice('end');
     const plays = calls.filter((c) => c.op === 'play');
     expect(plays).toHaveLength(1);
@@ -88,6 +94,7 @@ describe('AudioService', () => {
   it('voice is suppressed when disabled in settings', () => {
     const svc = makeService();
     svc.unlock();
+    calls.length = 0;
     state.voice = false;
     svc.voice('end');
     expect(calls.filter((c) => c.op === 'play')).toHaveLength(0);

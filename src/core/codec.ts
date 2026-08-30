@@ -50,7 +50,7 @@ function parseGroup(item: unknown): GroupConfig | null {
   const group: GroupConfig = {
     id: nanoid(8),
     startSec: clampNum(startSec, LIMITS.startSecMin, LIMITS.startSecMax, 60, LIMITS.startStep),
-    count: clampNum(count, LIMITS.countMin, LIMITS.countMax, 8, 1),
+    count: clampNum(count, LIMITS.countMin, LIMITS.countMax, 5, 1),
     incSec: clampNum(incSec, LIMITS.incSecMin, LIMITS.incSecMax, 0, LIMITS.incStep),
   };
   if (typeof name === 'string' && name.trim().length > 0) {

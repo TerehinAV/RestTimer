@@ -1,7 +1,9 @@
+import { useRef, useState } from 'react';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import type { LangMode, ThemeMode } from '../../core/types';
 import { haptic } from '../../tg/tg';
+import { APP_VERSION, diagnosticsBase64 } from '../../diagnostics/diagnostics';
 import { useSwipeBack } from '../useSwipeBack';
 
 export function SettingsScreen() {
@@ -10,6 +12,25 @@ export function SettingsScreen() {
   const lang = useApp((s) => s.lang);
   const setScreen = useApp((s) => s.setScreen);
   const swipeBack = useSwipeBack(() => setScreen({ name: 'registry' }));
+  const tapTimes = useRef<number[]>([]);
+  const [diagText, setDiagText] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const onVersionTap = async () => {
+    const now = Date.now();
+    tapTimes.current = [...tapTimes.current.filter((t0) => now - t0 < 3000), now];
+    if (tapTimes.current.length < 5) return;
+    tapTimes.current = [];
+    haptic('notify');
+    const payload = diagnosticsBase64();
+    try {
+      await navigator.clipboard.writeText(payload);
+      setToast(t(lang, 'diagCopied'));
+      setTimeout(() => setToast(null), 2200);
+    } catch {
+      setDiagText(payload);
+    }
+  };
 
   const pick = <T,>(value: T, apply: () => void) => () => {
     haptic('select');
@@ -61,6 +82,35 @@ export function SettingsScreen() {
             onChange={(on) => updateSettings({ mediaKeepAlive: on })}
           />
         </section>
+      </div>
+
+      <div className="relative px-4 pb-6">
+        <button
+          type="button"
+          className="w-full select-none text-center text-xs text-fg-faint active:opacity-60"
+          onClick={() => void onVersionTap()}
+        >
+          RestTimer v{APP_VERSION}
+        </button>
+        {toast && (
+          <div className="absolute inset-x-0 bottom-10 z-30 mx-auto w-fit rounded-full bg-bg-elev px-4 py-2 text-sm shadow-lg">
+            {toast}
+          </div>
+        )}
+        {diagText && (
+          <div className="absolute inset-x-4 bottom-10 z-40 rounded-xl bg-bg-elev p-3 shadow-lg">
+            <p className="mb-2 text-xs text-fg-muted">{t(lang, 'diagManual')}</p>
+            <textarea
+              readOnly
+              value={diagText}
+              className="h-24 w-full resize-none rounded-lg bg-card p-2 font-mono text-[10px] text-fg-muted"
+              onFocus={(e) => e.currentTarget.select()}
+            />
+            <button type="button" className="mt-2 w-full rounded-lg bg-card py-2 text-sm" onClick={() => setDiagText(null)}>
+              ✕
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );

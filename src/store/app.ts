@@ -13,9 +13,12 @@ export type Screen =
   | { name: 'importPreview'; groups: GroupConfig[] }
   | { name: 'settings' };
 
+type LastMaster = { count: number; incSec: number };
+
 type AppState = {
   registry: Registry;
   customPresets: CustomPreset[];
+  lastMaster: LastMaster;
   settings: Settings;
   screen: Screen;
   lang: Lang;
@@ -39,7 +42,8 @@ export const useApp = create<AppState>()(
     (set, get) => ({
       registry: emptyRegistry,
       customPresets: [],
-      settings: { themeMode: 'auto', langMode: 'auto', voiceOn: true, beepsOn: true, mediaKeepAlive: false },
+      lastMaster: { count: 5, incSec: 0 },
+      settings: { themeMode: 'auto', langMode: 'auto', voiceOn: true, beepsOn: true, mediaKeepAlive: true },
       screen: { name: 'registry' },
       lang: 'en',
       runs: [],
@@ -81,7 +85,12 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'resttimer',
-      partialize: (s) => ({ registry: s.registry, customPresets: s.customPresets, settings: s.settings }),
+      partialize: (s) => ({
+        registry: s.registry,
+        customPresets: s.customPresets,
+        settings: s.settings,
+        lastMaster: s.lastMaster,
+      }),
     },
   ),
 );

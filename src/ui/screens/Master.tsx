@@ -11,7 +11,7 @@ import { Wheel } from '../components/Wheel';
 import type { WheelItem } from '../components/Wheel';
 
 const minuteItems: WheelItem[] = Array.from({ length: 31 }, (_, m) => ({ value: m * 60, label: String(m) }));
-const secItems: WheelItem[] = Array.from({ length: 12 }, (_, i) => ({ value: i * 5, label: String(i * 5).padStart(2, '0') }));
+const allSecItems: WheelItem[] = Array.from({ length: 12 }, (_, i) => ({ value: i * 5, label: String(i * 5).padStart(2, '0') }));
 const countItems: WheelItem[] = Array.from({ length: LIMITS.countMax }, (_, i) => ({ value: i + 1, label: String(i + 1) }));
 const incItems: WheelItem[] = Array.from({ length: 13 }, (_, i) => ({ value: i * 5, label: `+${i * 5}` }));
 
@@ -29,8 +29,9 @@ export function MasterScreen() {
   const [startSec, setStartSec] = useState(() =>
     Math.min(LIMITS.startSecMax, Math.max(LIMITS.startSecMin, existing?.startSec ?? 60)),
   );
-  const [count, setCount] = useState(existing?.count ?? 8);
-  const [incSec, setIncSec] = useState(existing?.incSec ?? 0);
+  const lastMaster = useApp((s) => s.lastMaster);
+  const [count, setCount] = useState(existing?.count ?? lastMaster.count);
+  const [incSec, setIncSec] = useState(existing?.incSec ?? lastMaster.incSec);
   const [name, setName] = useState(existing?.name ?? '');
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [tagDraft, setTagDraft] = useState('');
@@ -46,6 +47,7 @@ export function MasterScreen() {
 
   const minutes = Math.floor(startSec / 60);
   const seconds = startSec % 60;
+  const secItems = minutes === 0 ? allSecItems.filter((i) => i.value >= LIMITS.startSecMin) : allSecItems;
 
   const allTags = useMemo(
     () => [...new Set(useApp.getState().registry.groups.flatMap((gr) => gr.tags ?? []))].slice(0, 24),
@@ -72,6 +74,7 @@ export function MasterScreen() {
       tags: tags.length > 0 ? tags : undefined,
     };
     saveGroup(final);
+    useApp.setState({ lastMaster: { count: final.count, incSec: final.incSec } });
     haptic('notify');
     setScreen({ name: 'registry' });
   };
@@ -197,6 +200,7 @@ export function MasterScreen() {
                   <input
                     value={tagDraft}
                     onChange={(e) => setTagDraft(e.target.value)}
+                    onBlur={addTag}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -207,11 +211,6 @@ export function MasterScreen() {
                     placeholder={t(lang, 'tagPlaceholder')}
                     className="w-28 rounded-full border border-card-border bg-card px-3 py-1.5 text-sm outline-none placeholder:text-fg-faint focus:border-accent"
                   />
-                  {tagDraft.trim() !== '' && (
-                    <button type="button" className="px-1 text-accent" onClick={addTag}>
-                      +
-                    </button>
-                  )}
                 </div>
               )}
             </div>

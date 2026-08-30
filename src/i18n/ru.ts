@@ -29,6 +29,8 @@ export const ru = {
   tagPlaceholder: 'имя тега',
   tagAll: 'Все',
   headsetTitle: 'Кнопка гарнитуры (Bluetooth)',
+  diagCopied: 'Диагностика скопирована',
+  diagManual: 'Скопируйте текст ниже вручную',
   presetsLabel: 'Пресеты',
   customPresetsLabel: 'Мои пресеты',
   savePreset: 'Сохранить пресет',

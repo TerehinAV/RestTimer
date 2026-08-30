@@ -1,4 +1,5 @@
 import type { Lang, VoiceKey } from '../core/types';
+import { diag, diagCount } from '../diagnostics/diagnostics';
 
 export const VOICE_KEYS: readonly VoiceKey[] = [
   'start',
@@ -70,7 +71,7 @@ const defaultCtxFactory = (): MinimalAudioCtx => {
   };
 };
 
-const KEEPALIVE_TONE_AMPLITUDE = 0;
+const KEEPALIVE_TONE_AMPLITUDE = 600;
 
 function silentLoopWavDataUri(): string {
   const sr = 8000;
@@ -122,6 +123,15 @@ export class AudioService {
   unlock(): void {
     if (this.unlocked) return;
     this.unlocked = true;
+    const session = (navigator as { audioSession?: { type?: string } }).audioSession;
+    if (session && 'type' in session) {
+      try {
+        session.type = 'playback';
+        diag('audioSession.type', 'playback');
+      } catch {
+        diag('audioSession.typeFail', 'set blocked');
+      }
+    }
     if (!this.ctx) {
       try {
         const factory = this.deps.createCtx ?? defaultCtxFactory;
@@ -134,14 +144,41 @@ export class AudioService {
     }
     this.primeVoices();
     this.attachMediaSession();
+    this.activateEl(this.ensureKeepAliveEl());
+  }
+
+  private activateEl(el: MinimalAudioEl): void {
+    if (!el) return;
+    el.currentTime = 0;
+    void el
+      .play()
+      .then(() => el.pause())
+      .catch(() => undefined);
+  }
+
+  private ensureKeepAliveEl(): MinimalAudioEl {
+    if (this.keepAliveEl) return this.keepAliveEl;
+    try {
+      const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
+      const el = factory(silentLoopWavDataUri());
+      el.loop = true;
+      this.keepAliveEl = el;
+      return el;
+    } catch {
+      return null as unknown as MinimalAudioEl;
+    }
   }
 
   voice(key: VoiceKey): void {
     if (!this.deps.voiceOn()) return;
+    diagCount(`voice.${this.deps.lang()}.${key}`);
     const el = this.pool.get(`${this.deps.lang()}/${key}`);
-    if (!el) return;
+    if (!el) {
+      diag('voice.missingPool', key);
+      return;
+    }
     el.currentTime = 0;
-    void el.play().catch(() => undefined);
+    void el.play().catch((err) => diag('voice.playFail', { key, err: String(err).slice(0, 120) }));
   }
 
   beep(kind: BeepKind): void {
@@ -167,19 +204,10 @@ export class AudioService {
   }
 
   setKeepAlive(on: boolean): void {
+    diag('keepAlive', on);
     if (on) {
-      if (!this.keepAliveEl) {
-        try {
-          const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
-          const el = factory(silentLoopWavDataUri());
-          el.loop = true;
-          el.volume = 0.0001;
-          this.keepAliveEl = el;
-        } catch {
-          return;
-        }
-      }
-      void this.keepAliveEl.play().catch(() => undefined);
+      const el = this.ensureKeepAliveEl();
+      if (el) void el.play().catch((err) => diag('keepAlive.playFail', String(err).slice(0, 120)));
     } else {
       this.keepAliveEl?.pause();
     }
@@ -201,9 +229,7 @@ export class AudioService {
   }
 
   private primeVoices(): void {
-    const factory =
-      this.deps.createAudioEl ??
-      ((url: string) => new (globalThis as { Audio?: typeof Audio }).Audio!(url) as unknown as MinimalAudioEl);
+    const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
     for (const lang of ['ru', 'en'] as const) {
       for (const key of VOICE_KEYS) {
         const id = `${lang}/${key}`;
@@ -212,6 +238,7 @@ export class AudioService {
           const el = factory(AudioService.urlFor(lang, key));
           el.preload = 'auto';
           this.pool.set(id, el);
+          this.activateEl(el);
         } catch {
           /* missing files degrade to beeps only */
         }
@@ -239,8 +266,9 @@ export class AudioService {
     const bind = (action: string, handler: () => void) => {
       try {
         ms.setActionHandler!(action, handler);
+        diagCount(`mediaSession.bound.${action}`);
       } catch {
-        /* unsupported action on this platform */
+        diag('mediaSession.bindFail', action);
       }
     };
     bind('play', () => this.deps.onMediaAction('play'));

@@ -46,6 +46,8 @@ describe('codec', () => {
   it('clamps out-of-range values', () => {
     const decoded = decodeCfg(encodeGroups([g({ startSec: 99999, count: 500, incSec: -30 })]))!;
     expect(decoded[0]).toMatchObject({ startSec: 1800, count: 30, incSec: 0 });
+    const tooSmall = decodeCfg(encodeGroups([g({ startSec: 0 })]))!;
+    expect(tooSmall[0].startSec).toBe(5);
   });
 
   it('rejects garbage payloads', () => {

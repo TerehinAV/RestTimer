@@ -6,6 +6,7 @@ import type { GroupConfig } from '../../core/types';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { isTelegram, openTelegramShare } from '../../tg/tg';
+import { diagCount } from '../../diagnostics/diagnostics';
 import { useSwipeBack } from '../useSwipeBack';
 import { haptic } from '../../tg/tg';
 
@@ -47,10 +48,12 @@ export function ShareScreen() {
   const shareUrl = async () => {
     haptic('tap');
     if (isTelegram()) {
+      diagCount('share.telegram');
       openTelegramShare(url);
       return;
     }
     if (navigator.share) {
+      diagCount('share.system');
       try {
         await navigator.share({ url });
       } catch {
