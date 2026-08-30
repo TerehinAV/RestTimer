@@ -59,6 +59,13 @@ export class TimerEngine {
     return this.focusedId;
   }
 
+  hasStartedRuns(): boolean {
+    for (const run of this.runs.values()) {
+      if (run.finishedAt === null && run.firstStartedAt !== null) return true;
+    }
+    return false;
+  }
+
   hasRunningTimers(): boolean {
     for (const run of this.runs.values()) {
       const t = run.timers[run.current];

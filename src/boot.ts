@@ -78,7 +78,7 @@ function handleEngineEvent(e: EngineEvent): void {
 }
 
 function syncKeepAlive(): void {
-  const active = useApp.getState().settings.mediaKeepAlive && getEngine().size > 0;
+  const active = useApp.getState().settings.mediaKeepAlive && getEngine().hasStartedRuns();
   audio!.setKeepAlive(active);
 }
 

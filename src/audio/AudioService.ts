@@ -71,7 +71,7 @@ const defaultCtxFactory = (): MinimalAudioCtx => {
   };
 };
 
-const KEEPALIVE_TONE_AMPLITUDE = 600;
+const KEEPALIVE_TONE_AMPLITUDE = 300;
 
 function silentLoopWavDataUri(): string {
   const sr = 8000;
@@ -93,8 +93,10 @@ function silentLoopWavDataUri(): string {
   view.setUint16(34, 16, true);
   ascii(36, 'data');
   view.setUint32(40, samples * 2, true);
+  const cycles = 4;
   for (let i = 0; i < samples; i += 1) {
-    view.setInt16(44 + i * 2, KEEPALIVE_TONE_AMPLITUDE, true);
+    const wave = Math.sin((2 * Math.PI * cycles * i) / samples) * KEEPALIVE_TONE_AMPLITUDE;
+    view.setInt16(44 + i * 2, Math.round(wave), true);
   }
   const bytes = new Uint8Array(view.buffer);
   let bin = '';

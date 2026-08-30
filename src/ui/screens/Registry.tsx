@@ -40,13 +40,13 @@ export function RegistryScreen() {
 
   useEffect(() => {
     for (const r of useApp.getState().runs) {
-      if (r.runStatus === 'done') getEngine().dismiss(r.runId);
+      if (r.runStatus === 'done' || r.actualMs === 0) getEngine().dismiss(r.runId);
     }
   }, []);
 
 
   const onCardTap = (group: GroupConfig) => {
-    const active = runs.find((r) => r.configId === group.id && r.runStatus === 'active');
+    const active = runs.find((r) => r.configId === group.id && r.runStatus === 'active' && r.actualMs > 0);
     if (active) {
       focusRun(active.runId);
       setScreen({ name: 'run' });
@@ -231,7 +231,7 @@ function SortableCard({
         onDragEnd={(_, info) => {
           if (info.offset.x < -72) onDelete();
         }}
-        className={`relative touch-pan-y ${activeRun ? 'bg-go-soft' : 'bg-card'}`}
+        className={`relative touch-pan-y border-l-[3px] ${activeRun ? 'border-l-go' : 'border-l-transparent'} bg-card`}
       >
         <div {...attributes} {...listeners} className="flex items-center gap-3 px-4 py-3.5" onClick={onTap}>
           <div className="min-w-0 flex-1">

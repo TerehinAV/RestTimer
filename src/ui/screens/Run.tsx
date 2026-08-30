@@ -15,6 +15,7 @@ export function RunScreen() {
   const touchStart = useRef<number | null>(null);
   const [confirmAbort, setConfirmAbort] = useState(false);
 
+  const startedRuns = runs.filter((r) => r.actualMs > 0);
   const run = runs.find((r) => r.runId === focusedRunId) ?? runs[0];
 
   useEffect(() => {
@@ -31,8 +32,8 @@ export function RunScreen() {
   const digitsColor = status === 'paused' ? 'text-accent' : status === 'waiting' ? 'text-fg-muted' : 'text-fg';
 
   const switchRun = (dir: 1 | -1) => {
-    const idx = runs.findIndex((r) => r.runId === run.runId);
-    const next = runs[idx + dir];
+    const idx = startedRuns.findIndex((r) => r.runId === run.runId);
+    const next = startedRuns[idx + dir];
     if (next) {
       focusRun(next.runId);
     } else if (dir === -1) {
@@ -59,7 +60,7 @@ export function RunScreen() {
           ‹
         </button>
         <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
-          {runs.map((r) => {
+          {startedRuns.map((r) => {
             const st = r.timers[r.current]?.status;
             const isFocused = r.runId === run.runId;
             return (
@@ -82,7 +83,7 @@ export function RunScreen() {
             );
           })}
         </div>
-        {run.runStatus === 'active' && (
+        {run.runStatus === 'active' && run.actualMs > 0 && (
           <button
             type="button"
             className="shrink-0 px-2 py-1 text-sm text-fg-muted active:opacity-60"
