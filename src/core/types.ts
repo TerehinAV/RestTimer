@@ -69,6 +69,8 @@ export const DEFAULT_PRESETS_SEC = [30, 45, 60, 90, 120, 180] as const;
 
 export type CustomPreset = { id: string; startSec: number };
 
+export type CountIncPreset = { id: string; count: number; incSec: number };
+
 export type Settings = {
   themeMode: ThemeMode;
   langMode: LangMode;

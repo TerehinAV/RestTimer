@@ -24,6 +24,10 @@ export function MasterScreen() {
   const customPresets = useApp((s) => s.customPresets);
   const saveCustomPreset = useApp((s) => s.saveCustomPreset);
   const removeCustomPreset = useApp((s) => s.removeCustomPreset);
+  const countIncPresets = useApp((s) => s.countIncPresets);
+  const saveCountIncPreset = useApp((s) => s.saveCountIncPreset);
+  const removeCountIncPreset = useApp((s) => s.removeCountIncPreset);
+  const registryGroups = useApp((s) => s.registry.groups);
 
   const [step, setStep] = useState(0);
   const swipeBack = useSwipeBack(() => (step === 0 ? setScreen({ name: 'registry' }) : setStep(step - 1)));
@@ -40,6 +44,7 @@ export function MasterScreen() {
 
   const standardPresets = [30, 45, 60, 90, 120, 180];
   const customMatch = customPresets.find((p) => p.startSec === startSec);
+  const countIncMatch = countIncPresets.find((p) => p.count === count && p.incSec === incSec);
   const isStandard = standardPresets.includes(startSec);
   const presetValues = useMemo(
     () => [...customPresets.map((p) => p.startSec), ...standardPresets].filter((v, i, arr) => arr.indexOf(v) === i),
@@ -54,8 +59,8 @@ export function MasterScreen() {
   const secItems = minutes === 0 ? allSecItems.filter((i) => i.value >= LIMITS.startSecMin) : allSecItems;
 
   const allTags = useMemo(
-    () => [...new Set(useApp.getState().registry.groups.flatMap((gr) => gr.tags ?? []))].slice(0, 24),
-    [],
+    () => [...new Set(registryGroups.flatMap((gr) => gr.tags ?? []))].slice(0, 24),
+    [registryGroups],
   );
 
   const addTag = () => {
@@ -167,7 +172,7 @@ export function MasterScreen() {
       )}
 
       {step === 1 && (
-        <section className="flex min-h-0 flex-1 flex-col justify-center gap-10">
+        <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 overflow-y-auto">
           <div>
             <h2 className="mb-2 text-center text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'stepCount')}</h2>
             <div className="flex justify-center">
@@ -179,6 +184,54 @@ export function MasterScreen() {
             <div className="flex justify-center">
               <Wheel className="w-28" items={incItems} value={incSec} onChange={setIncSec} />
             </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-center text-xs uppercase tracking-widest text-fg-muted">
+              {t(lang, 'countIncPresetsLabel')}
+            </p>
+            {countIncPresets.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-2">
+                {countIncPresets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    className={`rounded-full px-3.5 py-1.5 font-mono-timer text-sm tabular-nums active:opacity-70 ${
+                      preset.id === countIncMatch?.id ? 'bg-accent text-black' : 'bg-card text-fg-muted'
+                    }`}
+                    onClick={() => {
+                      setCount(preset.count);
+                      setIncSec(preset.incSec);
+                      haptic('tap');
+                    }}
+                  >
+                    {preset.count} +{preset.incSec}
+                  </button>
+                ))}
+              </div>
+            )}
+            {countIncMatch ? (
+              <button
+                type="button"
+                className="w-full rounded-full bg-card px-3 py-2 text-xs text-warn active:opacity-70"
+                onClick={() => {
+                  removeCountIncPreset(countIncMatch.id);
+                  haptic('warn');
+                }}
+              >
+                {t(lang, 'deletePreset')}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="w-full rounded-full bg-accent-soft px-3 py-2 text-xs text-accent active:opacity-70"
+                onClick={() => {
+                  saveCountIncPreset(count, incSec);
+                  haptic('notify');
+                }}
+              >
+                {t(lang, 'savePreset')}
+              </button>
+            )}
           </div>
         </section>
       )}
