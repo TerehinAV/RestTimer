@@ -39,10 +39,9 @@ export function SummaryScreen() {
         {run.label && <h1 className="text-xl font-semibold">{run.label}</h1>}
         <p className="text-sm text-fg-muted">{t(lang, 'summaryGreat')}</p>
 
-        <div className="mt-8 grid w-full max-w-72 grid-cols-3 gap-2 text-center">
-          <Stat label={t(lang, 'summaryActual')} value={fmtMs(run.actualMs)} accent />
+        <div className="mt-8 grid w-full max-w-60 grid-cols-2 gap-2 text-center">
+          <Stat label={t(lang, 'summaryTimers')} value={String(run.timers.filter((x) => x.status === 'done').length)} accent />
           <Stat label={t(lang, 'summaryPlanned')} value={fmtMs(run.plannedMs)} />
-          <Stat label={t(lang, 'summaryTimers')} value={String(run.timers.filter((x) => x.status === 'done').length)} />
         </div>
       </div>
 

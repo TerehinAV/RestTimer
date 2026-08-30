@@ -163,12 +163,9 @@ export function RunScreen() {
       </section>
 
       <footer className="px-6 pb-8">
-        <div className="mb-2 flex items-center justify-between text-xs text-fg-muted">
+        <div className="mb-2 flex items-center justify-center text-xs text-fg-muted">
           <span className="font-mono-timer tabular-nums">
             {run.current + 1}/{run.timers.length}
-          </span>
-          <span className="font-mono-timer tabular-nums">
-            ⏱ {fmtMs(run.actualMs)} / {fmtMs(run.plannedMs)}
           </span>
         </div>
         <div className="flex items-center justify-center gap-3">

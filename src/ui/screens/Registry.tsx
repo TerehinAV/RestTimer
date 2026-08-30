@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+
 import {
   DndContext,
   PointerSensor,
@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { fmtMs, plannedMs } from '../../core/time';
 import type { GroupConfig } from '../../core/types';
 import { t } from '../../i18n';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { startRun, focusRun, getEngine } from '../../boot';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
@@ -36,6 +37,12 @@ export function RegistryScreen() {
   );
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { delay: 260, tolerance: 8 } }));
+
+  useEffect(() => {
+    for (const r of useApp.getState().runs) {
+      if (r.runStatus === 'done') getEngine().dismiss(r.runId);
+    }
+  }, []);
 
 
   const onCardTap = (group: GroupConfig) => {
@@ -224,7 +231,7 @@ function SortableCard({
         onDragEnd={(_, info) => {
           if (info.offset.x < -72) onDelete();
         }}
-        className="relative touch-pan-y bg-card"
+        className={`relative touch-pan-y ${activeRun ? 'bg-go-soft' : 'bg-card'}`}
       >
         <div {...attributes} {...listeners} className="flex items-center gap-3 px-4 py-3.5" onClick={onTap}>
           <div className="min-w-0 flex-1">

@@ -14,7 +14,7 @@ type TgWebApp = {
   openTelegramLink(url: string): void;
   contentSafeAreaInsetTop?: number;
   contentSafeAreaInsetBottom?: number;
-  headerHeight?: number;
+  isExpanded?: boolean;
   onEvent?(event: string, handler: () => void): void;
 };
 
@@ -82,7 +82,7 @@ export function tgReady(): void {
   }
 }
 
-const TG_HEADER_MIN_PX = 72;
+const TG_FULLSCREEN_FALLBACK_PX = 100;
 
 export function applyContentSafeArea(): void {
   if (typeof document === 'undefined') return;
@@ -90,10 +90,12 @@ export function applyContentSafeArea(): void {
   let top = 0;
   let bottom = 0;
   if (app) {
-    if (typeof app.contentSafeAreaInsetTop === 'number') top = Math.max(top, app.contentSafeAreaInsetTop);
-    if (typeof app.contentSafeAreaInsetBottom === 'number') bottom = Math.max(bottom, app.contentSafeAreaInsetBottom);
-    if (typeof app.headerHeight === 'number') top = Math.max(top, app.headerHeight);
-    top = Math.max(top, TG_HEADER_MIN_PX);
+    if (typeof app.contentSafeAreaInsetTop === 'number' && app.contentSafeAreaInsetTop > 0) {
+      top = app.contentSafeAreaInsetTop;
+    } else if (app.isExpanded !== false) {
+      top = TG_FULLSCREEN_FALLBACK_PX;
+    }
+    if (typeof app.contentSafeAreaInsetBottom === 'number') bottom = app.contentSafeAreaInsetBottom;
   }
   const root = document.documentElement;
   root.style.setProperty('--tg-inset-top', `${top}px`);
