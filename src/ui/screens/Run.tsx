@@ -126,6 +126,13 @@ export function RunScreen() {
           </span>
         </div>
 
+        {run.overrunLimitMs > 0 && (
+          <p className="mt-2 font-mono-timer text-sm tabular-nums text-accent">
+            {t(lang, 'overrun')} +{fmtMs(run.overrunMs)}
+            {run.overrunMs >= run.overrunLimitMs ? ` · ${t(lang, 'overrunLimit')}` : ''}
+          </p>
+        )}
+
         <div className="mt-3 h-6">
           {status === 'waiting' && (
             <p className="animate-pulse text-sm text-fg-muted">{t(lang, 'tapToStart')}</p>

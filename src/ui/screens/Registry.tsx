@@ -91,7 +91,12 @@ export function RegistryScreen() {
   return (
     <main className="flex h-full flex-col bg-bg">
       <header className="flex items-center justify-between px-4 pb-2 pt-5">
-        <h1 className="text-2xl font-bold">{t(lang, 'registryTitle')}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">{t(lang, 'registryTitle')}</h1>
+          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+            beta 0.1.15
+          </span>
+        </div>
         <div className="flex items-center gap-4 text-fg-muted">
           <button type="button" aria-label="share" onClick={() => setScreen({ name: 'share' })}>
             <ShareIcon />

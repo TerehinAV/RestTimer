@@ -36,6 +36,8 @@ type AppState = {
   removeCustomPreset: (id: string) => void;
   saveCountIncPreset: (count: number, incSec: number) => void;
   removeCountIncPreset: (id: string) => void;
+  renameTag: (from: string, to: string) => void;
+  deleteTag: (tag: string) => void;
   mirrorRuns: (runs: RunSnapshot[], focusedRunId: string | null) => void;
 };
 
@@ -96,6 +98,24 @@ export const useApp = create<AppState>()(
       },
       removeCountIncPreset: (id) => {
         set({ countIncPresets: get().countIncPresets.filter((p) => p.id !== id) });
+      },
+      renameTag: (from, rawTo) => {
+        const to = rawTo.trim().slice(0, LIMITS.tagMax);
+        if (!to || to === from) return;
+        const groups = get().registry.groups.map((group) => {
+          if (!group.tags?.includes(from)) return group;
+          const tags = [...new Set(group.tags.map((tag) => (tag === from ? to : tag)))];
+          return { ...group, tags };
+        });
+        set({ registry: { v: 1, groups } });
+      },
+      deleteTag: (tag) => {
+        const groups = get().registry.groups.map((group) => {
+          if (!group.tags?.includes(tag)) return group;
+          const tags = group.tags.filter((item) => item !== tag);
+          return { ...group, tags: tags.length > 0 ? tags : undefined };
+        });
+        set({ registry: { v: 1, groups } });
       },
       mirrorRuns: (runs, focusedRunId) => set({ runs, focusedRunId }),
     }),

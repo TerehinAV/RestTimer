@@ -14,6 +14,8 @@ const fakeAudioEl = (id: string): MinimalAudioEl => ({
   currentTime: 0,
   loop: false,
   volume: 1,
+  onended: null,
+  onerror: null,
   load() {},
   play() {
     calls.push({ id: this.src, op: 'play' });

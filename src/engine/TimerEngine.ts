@@ -27,6 +27,8 @@ type RunState = {
   current: number;
   firstStartedAt: number | null;
   finishedAt: number | null;
+  overrunStartedAt: number | null;
+  overrunLimitMs: number;
   unseenFinish: boolean;
   lastTickAt: number;
 };
@@ -88,6 +90,8 @@ export class TimerEngine {
       current: 0,
       firstStartedAt: null,
       finishedAt: null,
+      overrunStartedAt: null,
+      overrunLimitMs: 0,
       unseenFinish: false,
       lastTickAt: now,
     });
@@ -159,6 +163,8 @@ export class TimerEngine {
     t.endAt = now + t.durMs;
     t.status = 'running';
     t.firedCues.clear();
+    run.overrunStartedAt = null;
+    run.overrunLimitMs = 0;
     run.lastTickAt = now;
     this.emitSnapshot();
   }
@@ -179,6 +185,8 @@ export class TimerEngine {
     prev.remainMs = prev.durMs;
     prev.endAt = null;
     prev.firedCues.clear();
+    run.overrunStartedAt = null;
+    run.overrunLimitMs = 0;
     this.emitSnapshot();
   }
 
@@ -193,6 +201,8 @@ export class TimerEngine {
     }
     run.current = run.timers.length;
     run.finishedAt = this.now();
+    run.overrunStartedAt = null;
+    run.overrunLimitMs = 0;
     const focused = run.runId === this.focusedId;
     if (!focused) run.unseenFinish = true;
     this.onEvent({ type: 'groupFinished', runId: run.runId, focused });
@@ -257,6 +267,8 @@ export class TimerEngine {
     if (!t) return;
     const now = this.now();
     if (run.firstStartedAt === null) run.firstStartedAt = now;
+    run.overrunStartedAt = null;
+    run.overrunLimitMs = 0;
     t.status = 'running';
     t.endAt = now + t.remainMs;
     t.firedCues.clear();
@@ -286,6 +298,7 @@ export class TimerEngine {
   }
 
   private advance(run: RunState): void {
+    const completed = run.timers[run.current];
     run.current += 1;
     if (run.current >= run.timers.length) {
       run.current = run.timers.length;
@@ -293,6 +306,9 @@ export class TimerEngine {
       const focused = run.runId === this.focusedId;
       if (!focused) run.unseenFinish = true;
       this.onEvent({ type: 'groupFinished', runId: run.runId, focused });
+    } else {
+      run.overrunStartedAt = this.now();
+      run.overrunLimitMs = (completed?.durMs ?? 0) * 5;
     }
     this.emitSnapshot();
   }
@@ -316,6 +332,9 @@ export class TimerEngine {
       current: Math.min(run.current, run.timers.length - 1),
       plannedMs: plannedMs(run.config),
       actualMs,
+      overrunMs:
+        run.overrunStartedAt === null ? 0 : Math.min(now - run.overrunStartedAt, run.overrunLimitMs),
+      overrunLimitMs: run.overrunLimitMs,
       runStatus: run.finishedAt !== null ? 'done' : 'active',
       unseenFinish: run.unseenFinish,
     };

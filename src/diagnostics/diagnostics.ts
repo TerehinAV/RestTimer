@@ -6,7 +6,7 @@ let entries: DiagEntry[] = [];
 let counters: Record<string, number> = {};
 let bootedAt = Date.now();
 
-export const APP_VERSION = '1.1.0';
+export const APP_VERSION = '0.1.15';
 
 export function diag(kind: string, data?: unknown): void {
   try {

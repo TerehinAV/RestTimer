@@ -1,20 +1,27 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import type { LangMode, ThemeMode } from '../../core/types';
 import { haptic } from '../../tg/tg';
 import { APP_VERSION, diagnosticsBase64 } from '../../diagnostics/diagnostics';
 import { useSwipeBack } from '../useSwipeBack';
+import { PencilIcon, TrashIcon } from '../components/Icons';
 
 export function SettingsScreen() {
   const settings = useApp((s) => s.settings);
   const updateSettings = useApp((s) => s.updateSettings);
   const lang = useApp((s) => s.lang);
   const setScreen = useApp((s) => s.setScreen);
+  const groups = useApp((s) => s.registry.groups);
+  const renameTag = useApp((s) => s.renameTag);
+  const deleteTag = useApp((s) => s.deleteTag);
   const swipeBack = useSwipeBack(() => setScreen({ name: 'registry' }));
   const tapTimes = useRef<number[]>([]);
   const [diagText, setDiagText] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [tagName, setTagName] = useState('');
+  const allTags = useMemo(() => [...new Set(groups.flatMap((group) => group.tags ?? []))], [groups]);
 
   const onVersionTap = async () => {
     const now = Date.now();
@@ -46,7 +53,7 @@ export function SettingsScreen() {
         <h1 className="text-lg font-semibold">{t(lang, 'settings')}</h1>
       </header>
 
-      <div className="flex-1 space-y-6 px-4 pt-4">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-4 pt-4">
         <section>
           <p className="mb-2 text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'themeTitle')}</p>
           <Segmented<ThemeMode>
@@ -77,15 +84,76 @@ export function SettingsScreen() {
           <ToggleRow label={t(lang, 'voiceTitle')} on={settings.voiceOn} onChange={(on) => updateSettings({ voiceOn: on })} />
           <ToggleRow label={t(lang, 'beepsTitle')} on={settings.beepsOn} onChange={(on) => updateSettings({ beepsOn: on })} />
         </section>
+
+        <section>
+          <p className="mb-2 text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'tagsManage')}</p>
+          {allTags.length === 0 ? (
+            <p className="text-sm text-fg-faint">{t(lang, 'tagsEmpty')}</p>
+          ) : (
+            <div className="space-y-2">
+              {allTags.map((tag) => (
+                <div key={tag} className="flex items-center gap-2 rounded-xl bg-card px-3 py-2.5">
+                  {editingTag === tag ? (
+                    <input
+                      autoFocus
+                      value={tagName}
+                      maxLength={20}
+                      className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+                      onChange={(e) => setTagName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                        if (e.key === 'Escape') setEditingTag(null);
+                      }}
+                      onBlur={() => {
+                        renameTag(tag, tagName);
+                        setEditingTag(null);
+                      }}
+                    />
+                  ) : (
+                    <span className="min-w-0 flex-1 truncate text-sm">{tag}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="p-1.5 text-fg-muted active:opacity-60"
+                    onClick={() => {
+                      setEditingTag(tag);
+                      setTagName(tag);
+                    }}
+                  >
+                    <PencilIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    className="p-1.5 text-warn active:opacity-60"
+                    onClick={() => {
+                      deleteTag(tag);
+                      haptic('warn');
+                    }}
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
       <div className="relative px-4 pb-safe">
+        <a
+          href="https://github.com/TerehinAV"
+          target="_blank"
+          rel="noreferrer"
+          className="mb-2 block text-center text-xs text-fg-muted underline-offset-2 active:opacity-60"
+        >
+          github.com/TerehinAV
+        </a>
         <button
           type="button"
           className="w-full select-none text-center text-xs text-fg-faint active:opacity-60"
           onClick={() => void onVersionTap()}
         >
-          RestTimer v{APP_VERSION}
+          RestTimer v{APP_VERSION} beta
         </button>
         {toast && (
           <div className="absolute inset-x-0 bottom-10 z-30 mx-auto w-fit rounded-full bg-bg-elev px-4 py-2 text-sm shadow-lg">

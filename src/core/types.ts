@@ -42,6 +42,8 @@ export type RunSnapshot = {
   current: number;
   plannedMs: number;
   actualMs: number;
+  overrunMs: number;
+  overrunLimitMs: number;
   runStatus: RunStatus;
   unseenFinish: boolean;
 };

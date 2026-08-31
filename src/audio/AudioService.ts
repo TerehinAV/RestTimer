@@ -26,6 +26,8 @@ export type MinimalAudioEl = {
   currentTime: number;
   loop: boolean;
   volume: number;
+  onended: (() => void) | null;
+  onerror: (() => void) | null;
   load(): void;
   play(): Promise<void>;
   pause(): void;
@@ -127,15 +129,7 @@ export class AudioService {
   unlock(): void {
     if (this.unlocked) return;
     this.unlocked = true;
-    const session = (navigator as { audioSession?: { type?: string } }).audioSession;
-    if (session && 'type' in session) {
-      try {
-        session.type = 'playback';
-        diag('audioSession.type', 'playback');
-      } catch {
-        diag('audioSession.typeFail', 'set blocked');
-      }
-    }
+    this.setAudioSessionType('auto');
     if (!this.ctx) {
       try {
         const factory = this.deps.createCtx ?? defaultCtxFactory;
@@ -189,13 +183,34 @@ export class AudioService {
     const el = this.ensureVoiceEl();
     try {
       el.pause();
+      this.setAudioSessionType('transient');
       el.src = AudioService.urlFor(lang, key);
       el.loop = false;
+      el.onended = () => this.setAudioSessionType('auto');
+      el.onerror = () => {
+        diag('voice.mediaError', key);
+        this.setAudioSessionType('auto');
+      };
       el.load();
       el.currentTime = 0;
-      void el.play().catch((err) => diag('voice.playFail', { key, err: String(err).slice(0, 120) }));
+      void el.play().catch((err) => {
+        diag('voice.playFail', { key, err: String(err).slice(0, 120) });
+        this.setAudioSessionType('auto');
+      });
     } catch (err) {
       diag('voice.channelFail', { key, err: String(err).slice(0, 120) });
+      this.setAudioSessionType('auto');
+    }
+  }
+
+  private setAudioSessionType(type: 'auto' | 'transient'): void {
+    const session = (navigator as { audioSession?: { type?: string } }).audioSession;
+    if (!session || !('type' in session)) return;
+    try {
+      session.type = type;
+      diag('audioSession.type', type);
+    } catch {
+      diag('audioSession.typeFail', type);
     }
   }
 

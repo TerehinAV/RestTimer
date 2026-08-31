@@ -276,6 +276,34 @@ describe('previous and finish', () => {
   });
 });
 
+describe('overrun timer', () => {
+  it('counts after timer ends until the next timer starts', () => {
+    engine.start(cfg({ startSec: 10, count: 2 }));
+    engine.tap();
+    clock.tick(10_000);
+    engine.tick();
+    expect(lastSnapshot()[0].overrunMs).toBe(0);
+    expect(lastSnapshot()[0].overrunLimitMs).toBe(50_000);
+    clock.tick(7_500);
+    engine.tick();
+    expect(lastSnapshot()[0].overrunMs).toBe(7_500);
+    engine.tap();
+    expect(lastSnapshot()[0].overrunMs).toBe(0);
+    expect(lastSnapshot()[0].overrunLimitMs).toBe(0);
+  });
+
+  it('caps overrun at five times the completed timer', () => {
+    engine.start(cfg({ startSec: 5, count: 2 }));
+    engine.tap();
+    clock.tick(5_000);
+    engine.tick();
+    clock.tick(90_000);
+    engine.tick();
+    expect(lastSnapshot()[0].overrunMs).toBe(25_000);
+    expect(lastSnapshot()[0].overrunLimitMs).toBe(25_000);
+  });
+});
+
 describe('dismiss', () => {
   it('removes run and refocuses to remaining one', () => {
     const a = engine.start(cfg({ id: 'a' }));
