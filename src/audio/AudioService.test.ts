@@ -7,24 +7,29 @@ type Call = { id: string; op: 'play' | 'pause' };
 let calls: Call[];
 let state: { lang: 'ru' | 'en'; voice: boolean; beeps: boolean };
 let actions: string[];
+let createdAudioEls: MinimalAudioEl[];
 
-const fakeAudioEl = (id: string): MinimalAudioEl => ({
-  src: id,
-  preload: '',
-  currentTime: 0,
-  loop: false,
-  volume: 1,
-  onended: null,
-  onerror: null,
-  load() {},
-  play() {
-    calls.push({ id: this.src, op: 'play' });
-    return Promise.resolve();
-  },
-  pause() {
-    calls.push({ id: this.src, op: 'pause' });
-  },
-});
+const fakeAudioEl = (id: string): MinimalAudioEl => {
+  const el: MinimalAudioEl = {
+    src: id,
+    preload: '',
+    currentTime: 0,
+    loop: false,
+    volume: 1,
+    onended: null,
+    onerror: null,
+    load() {},
+    play() {
+      calls.push({ id: this.src, op: 'play' });
+      return Promise.resolve();
+    },
+    pause() {
+      calls.push({ id: this.src, op: 'pause' });
+    },
+  };
+  createdAudioEls.push(el);
+  return el;
+};
 
 const fakeCtx = (): MinimalAudioCtx => {
   const started: number[] = [];
@@ -66,6 +71,7 @@ const makeService = () =>
 beforeEach(() => {
   calls = [];
   actions = [];
+  createdAudioEls = [];
   state = { lang: 'ru', voice: true, beeps: true };
 });
 
@@ -105,6 +111,18 @@ describe('AudioService', () => {
     expect(startPauses).toHaveLength(1);
     const endPlays = calls.filter((c) => c.id.includes('/ru/end.mp3') && c.op === 'play');
     expect(endPlays).toHaveLength(1);
+  });
+
+  it('queues group completion after timer end voice', () => {
+    const svc = makeService();
+    svc.unlock();
+    calls.length = 0;
+    svc.voice('end');
+    svc.voice('groupDone', true);
+    expect(calls.filter((c) => c.op === 'play' && c.id.includes('/groupDone.mp3'))).toHaveLength(0);
+    const channel = createdAudioEls.at(-1)!;
+    channel.onended?.();
+    expect(calls.filter((c) => c.op === 'play' && c.id.includes('/groupDone.mp3'))).toHaveLength(1);
   });
 
   it('voice is suppressed when disabled in settings', () => {

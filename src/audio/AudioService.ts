@@ -115,6 +115,8 @@ export class AudioService {
   private deps: AudioDeps;
   private ctx: MinimalAudioCtx | null = null;
   private voiceEl: MinimalAudioEl | null = null;
+  private voicePlaying = false;
+  private voiceQueue: { lang: Lang; key: VoiceKey }[] = [];
   private keepAliveEl: MinimalAudioEl | null = null;
   private unlocked = false;
 
@@ -146,10 +148,13 @@ export class AudioService {
 
   private activateEl(el: MinimalAudioEl): void {
     if (!el) return;
+    const activationSrc = el.src;
     el.currentTime = 0;
     void el
       .play()
-      .then(() => el.pause())
+      .then(() => {
+        if (el.src === activationSrc) el.pause();
+      })
       .catch(() => undefined);
   }
 
@@ -176,31 +181,51 @@ export class AudioService {
     }
   }
 
-  voice(key: VoiceKey): void {
+  voice(key: VoiceKey, enqueue = false): void {
     if (!this.deps.voiceOn()) return;
     const lang = this.deps.lang();
     diagCount(`voice.${lang}.${key}`);
+    if (enqueue && this.voicePlaying) {
+      this.voiceQueue.push({ lang, key });
+      return;
+    }
+    if (!enqueue) this.voiceQueue = [];
+    this.playVoice(lang, key);
+  }
+
+  private playVoice(lang: Lang, key: VoiceKey): void {
     const el = this.ensureVoiceEl();
     try {
       el.pause();
+      this.voicePlaying = true;
       this.setAudioSessionType('transient');
       el.src = AudioService.urlFor(lang, key);
       el.loop = false;
-      el.onended = () => this.setAudioSessionType('auto');
+      el.onended = () => this.finishVoice();
       el.onerror = () => {
         diag('voice.mediaError', key);
-        this.setAudioSessionType('auto');
+        this.finishVoice();
       };
       el.load();
       el.currentTime = 0;
       void el.play().catch((err) => {
         diag('voice.playFail', { key, err: String(err).slice(0, 120) });
-        this.setAudioSessionType('auto');
+        this.finishVoice();
       });
     } catch (err) {
       diag('voice.channelFail', { key, err: String(err).slice(0, 120) });
-      this.setAudioSessionType('auto');
+      this.finishVoice();
     }
+  }
+
+  private finishVoice(): void {
+    this.voicePlaying = false;
+    const next = this.voiceQueue.shift();
+    if (next) {
+      this.playVoice(next.lang, next.key);
+      return;
+    }
+    this.setAudioSessionType('auto');
   }
 
   private setAudioSessionType(type: 'auto' | 'transient'): void {

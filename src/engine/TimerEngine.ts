@@ -36,6 +36,7 @@ type RunState = {
 export const CUE_THRESHOLDS_SEC = [15, 10, 5, 4, 3, 2, 1] as const;
 const STALE_CUE_GRACE_MS = 1200;
 const GAP_DETECTION_MS = 2000;
+const START_VOICE_GUARD_MS = 2500;
 
 export type EngineOptions = {
   onEvent: (e: EngineEvent) => void;
@@ -272,6 +273,9 @@ export class TimerEngine {
     t.status = 'running';
     t.endAt = now + t.remainMs;
     t.firedCues.clear();
+    for (const th of CUE_THRESHOLDS_SEC) {
+      if (t.remainMs <= th * 1000 + START_VOICE_GUARD_MS) t.firedCues.add(th);
+    }
     run.lastTickAt = now;
     this.onEvent({ type: 'timerStarted', runId: run.runId, focused: run.runId === this.focusedId });
     this.emitSnapshot();

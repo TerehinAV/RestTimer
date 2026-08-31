@@ -70,7 +70,7 @@ function handleEngineEvent(e: EngineEvent): void {
       }
       break;
     case 'groupFinished':
-      if (e.focused) svc.voice('groupDone');
+      if (e.focused) svc.voice('groupDone', true);
       else svc.beep('chime');
       if (e.focused) useApp.getState().setScreen({ name: 'summary', runId: e.runId });
       break;
