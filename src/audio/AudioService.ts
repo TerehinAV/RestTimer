@@ -26,6 +26,9 @@ export type MinimalAudioEl = {
   currentTime: number;
   loop: boolean;
   volume: number;
+  muted?: boolean;
+  paused?: boolean;
+  readyState?: number;
   onended: (() => void) | null;
   onerror: (() => void) | null;
   load(): void;
@@ -116,13 +119,16 @@ export class AudioService {
   private deps: AudioDeps;
   private ctx: MinimalAudioCtx | null = null;
   private voiceEl: MinimalAudioEl | null = null;
+  private voiceSource: { lang: Lang; key: VoiceKey } | null = null;
   private voicePlaying = false;
   private voiceQueue: { lang: Lang; key: VoiceKey }[] = [];
   private keepAliveEl: MinimalAudioEl | null = null;
+  private keepAliveActive = false;
   private unlocked = false;
 
   constructor(deps: AudioDeps) {
     this.deps = deps;
+    this.prepareStart();
   }
 
   static urlFor(lang: Lang, key: VoiceKey): string {
@@ -139,11 +145,26 @@ export class AudioService {
   private ensureVoiceEl(): MinimalAudioEl {
     if (this.voiceEl) return this.voiceEl;
     const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
-    const el = factory(silentLoopWavDataUri(0));
+    const lang = this.deps.lang();
+    const el = factory(AudioService.urlFor(lang, 'start'));
     el.loop = false;
     el.preload = 'auto';
+    el.load();
     this.voiceEl = el;
+    this.voiceSource = { lang, key: 'start' };
     return el;
+  }
+
+  prepareStart(): void {
+    if (this.voicePlaying) return;
+    const lang = this.deps.lang();
+    const el = this.ensureVoiceEl();
+    if (this.voiceSource?.lang === lang && this.voiceSource.key === 'start') return;
+    el.pause();
+    el.src = AudioService.urlFor(lang, 'start');
+    el.preload = 'auto';
+    el.load();
+    this.voiceSource = { lang, key: 'start' };
   }
 
   private ensureKeepAliveEl(): MinimalAudioEl {
@@ -176,20 +197,39 @@ export class AudioService {
     try {
       el.pause();
       this.voicePlaying = true;
-      this.setAudioSessionType('ambient');
-      el.src = AudioService.urlFor(lang, key);
+      this.setAudioSessionType('transient');
+      const sourceChanged = this.voiceSource?.lang !== lang || this.voiceSource.key !== key;
+      if (sourceChanged) {
+        el.src = AudioService.urlFor(lang, key);
+        el.load();
+        this.voiceSource = { lang, key };
+      }
       el.loop = false;
-      el.onended = () => this.finishVoice();
+      el.onended = () => {
+        diag('voice.ended', { key, lang });
+        this.finishVoice();
+      };
       el.onerror = () => {
         diag('voice.mediaError', key);
         this.finishVoice();
       };
-      el.load();
       el.currentTime = 0;
-      void el.play().catch((err) => {
-        diag('voice.playFail', { key, err: String(err).slice(0, 120) });
-        this.finishVoice();
-      });
+      void el
+        .play()
+        .then(() =>
+          diag('voice.playResolved', {
+            key,
+            lang,
+            volume: el.volume,
+            muted: el.muted ?? false,
+            paused: el.paused ?? false,
+            readyState: el.readyState ?? null,
+          }),
+        )
+        .catch((err) => {
+          diag('voice.playFail', { key, err: String(err).slice(0, 120) });
+          this.finishVoice();
+        });
     } catch (err) {
       diag('voice.channelFail', { key, err: String(err).slice(0, 120) });
       this.finishVoice();
@@ -206,7 +246,7 @@ export class AudioService {
     this.setAudioSessionType('auto');
   }
 
-  private setAudioSessionType(type: 'auto' | 'ambient'): void {
+  private setAudioSessionType(type: 'auto' | 'transient'): void {
     const session = (navigator as { audioSession?: { type?: string } }).audioSession;
     if (!session || !('type' in session)) return;
     try {
@@ -240,6 +280,8 @@ export class AudioService {
   }
 
   setKeepAlive(on: boolean): void {
+    if (this.keepAliveActive === on) return;
+    this.keepAliveActive = on;
     diag('keepAlive', on);
     if (on) {
       const el = this.ensureKeepAliveEl();

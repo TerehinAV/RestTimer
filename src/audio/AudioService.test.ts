@@ -108,7 +108,7 @@ describe('AudioService', () => {
     svc.voice('start');
     svc.voice('end');
     const startPauses = calls.filter((c) => c.id.includes('/ru/start.mp3') && c.op === 'pause');
-    expect(startPauses).toHaveLength(1);
+    expect(startPauses).toHaveLength(2);
     const endPlays = calls.filter((c) => c.id.includes('/ru/end.mp3') && c.op === 'play');
     expect(endPlays).toHaveLength(1);
   });

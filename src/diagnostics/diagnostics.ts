@@ -85,6 +85,7 @@ function telegramPart(): Record<string, unknown> {
 
 export function snapshotDiagnostics(): Record<string, unknown> {
   return {
+    version: `${APP_VERSION} beta`,
     meta: { version: APP_VERSION, at: new Date().toISOString() },
     env: envPart(),
     telegram: telegramPart(),

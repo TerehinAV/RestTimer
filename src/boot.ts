@@ -27,6 +27,7 @@ export function getAudio(): AudioService {
 
 export function startRun(config: GroupConfig): void {
   diagCount('run.start');
+  getAudio().prepareStart();
   getEngine().start(config);
   useApp.getState().setScreen({ name: 'run' });
   haptic('notify');
