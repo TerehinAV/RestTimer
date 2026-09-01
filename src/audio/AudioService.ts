@@ -36,26 +36,6 @@ export type MinimalAudioEl = {
   pause(): void;
 };
 
-export type MinimalOscNode = {
-  frequency: { value: number };
-  connect(node: unknown): MinimalOscNode;
-  start(when: number): void;
-  stop(when: number): void;
-};
-
-export type MinimalGainNode = {
-  gain: { setValueAtTime(v: number, t: number): void; exponentialRampToValueAtTime(v: number, t: number): void };
-  connect(node: unknown): MinimalGainNode;
-};
-
-export type MinimalAudioCtx = {
-  currentTime: number;
-  resume(): Promise<void>;
-  createOscillator(): MinimalOscNode;
-  createGain(): MinimalGainNode;
-  destination: unknown;
-};
-
 export type AudioDeps = {
   lang: () => Lang;
   voiceOn: () => boolean;
@@ -64,48 +44,43 @@ export type AudioDeps = {
   mediaControlsEnabled: () => boolean;
   onMediaAction: (a: MediaAction) => void;
   createAudioEl?: (url: string) => MinimalAudioEl;
-  createCtx?: () => MinimalAudioCtx;
 };
 
-const defaultCtxFactory = (): MinimalAudioCtx => {
-  const ctx = new AudioContext();
-  return {
-    get currentTime() {
-      return ctx.currentTime;
-    },
-    resume: () => ctx.resume(),
-    createOscillator: () => ctx.createOscillator() as unknown as MinimalOscNode,
-    createGain: () => ctx.createGain() as unknown as MinimalGainNode,
-    destination: ctx.destination,
-  };
-};
+const defaultAudioElFactory = (url: string): MinimalAudioEl =>
+  new Audio(url) as unknown as MinimalAudioEl;
 
-const KEEPALIVE_TONE_AMPLITUDE = 300;
+const SAMPLE_RATE = 22050;
 
-function silentLoopWavDataUri(amplitude = KEEPALIVE_TONE_AMPLITUDE): string {
-  const sr = 8000;
-  const samples = Math.floor(sr * 0.5);
-  const view = new DataView(new ArrayBuffer(44 + samples * 2));
+type ToneSegment = { freq: number; startSec: number; durSec: number; peak: number };
+
+function wavFromTones(segments: ToneSegment[]): string {
+  const totalSamples = Math.ceil((segments.at(-1)!.startSec + segments.at(-1)!.durSec + 0.04) * SAMPLE_RATE);
+  const view = new DataView(new ArrayBuffer(44 + totalSamples * 2));
   const ascii = (offset: number, text: string) => {
     for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
   };
   ascii(0, 'RIFF');
-  view.setUint32(4, 36 + samples * 2, true);
+  view.setUint32(4, 36 + totalSamples * 2, true);
   ascii(8, 'WAVE');
   ascii(12, 'fmt ');
   view.setUint32(16, 16, true);
   view.setUint16(20, 1, true);
   view.setUint16(22, 1, true);
-  view.setUint32(24, sr, true);
-  view.setUint32(28, sr * 2, true);
+  view.setUint32(24, SAMPLE_RATE, true);
+  view.setUint32(28, SAMPLE_RATE * 2, true);
   view.setUint16(32, 2, true);
   view.setUint16(34, 16, true);
   ascii(36, 'data');
-  view.setUint32(40, samples * 2, true);
-  const cycles = 4;
-  for (let i = 0; i < samples; i += 1) {
-    const wave = Math.sin((2 * Math.PI * cycles * i) / samples) * amplitude;
-    view.setInt16(44 + i * 2, Math.round(wave), true);
+  view.setUint32(40, totalSamples * 2, true);
+  for (const seg of segments) {
+    const from = Math.floor(seg.startSec * SAMPLE_RATE);
+    const len = Math.floor(seg.durSec * SAMPLE_RATE);
+    for (let i = 0; i < len; i += 1) {
+      const t = i / SAMPLE_RATE;
+      const envelope = 1 - i / len;
+      const sample = Math.sin(2 * Math.PI * seg.freq * t) * seg.peak * envelope;
+      view.setInt16(44 + (from + i) * 2, Math.max(-1, Math.min(1, sample)) * 32767, true);
+    }
   }
   const bytes = new Uint8Array(view.buffer);
   let bin = '';
@@ -113,16 +88,25 @@ function silentLoopWavDataUri(amplitude = KEEPALIVE_TONE_AMPLITUDE): string {
   return `data:audio/wav;base64,${btoa(bin)}`;
 }
 
-const defaultAudioElFactory = (url: string): MinimalAudioEl =>
-  new Audio(url) as unknown as MinimalAudioEl;
+const BEEP_SEGMENTS: Record<BeepKind, ToneSegment[]> = {
+  end: [
+    { freq: 880, startSec: 0, durSec: 0.09, peak: 0.55 },
+    { freq: 880, startSec: 0.14, durSec: 0.09, peak: 0.55 },
+    { freq: 1175, startSec: 0.28, durSec: 0.16, peak: 0.65 },
+  ],
+  tick: [{ freq: 1200, startSec: 0, durSec: 0.035, peak: 0.4 }],
+  chime: [
+    { freq: 660, startSec: 0, durSec: 0.12, peak: 0.5 },
+    { freq: 990, startSec: 0.15, durSec: 0.2, peak: 0.55 },
+  ],
+};
 
 export class AudioService {
   private deps: AudioDeps;
-  private ctx: MinimalAudioCtx | null = null;
   private voiceEl: MinimalAudioEl | null = null;
   private voiceSource: { lang: Lang; key: VoiceKey } | null = null;
   private voicePlaying = false;
-  private voiceQueue: { lang: Lang; key: VoiceKey }[] = [];
+  private channelQueue: Array<() => void> = [];
   private keepAliveEl: MinimalAudioEl | null = null;
   private keepAliveActive = false;
   private unlocked = false;
@@ -139,8 +123,29 @@ export class AudioService {
   unlock(): void {
     if (this.unlocked) return;
     this.unlocked = true;
-    this.ensureVoiceEl();
+    this.blessChannel();
     if (this.deps.mediaControlsEnabled()) this.attachMediaSession();
+  }
+
+  private blessChannel(): void {
+    const el = this.ensureVoiceEl();
+    try {
+      el.onended = null;
+      el.onerror = null;
+      el.src = silentChannelWavDataUri();
+      el.load();
+      el.currentTime = 0;
+      const captured = el.src;
+      this.voiceSource = null;
+      void el
+        .play()
+        .then(() => {
+          if (el.src === captured) el.pause();
+        })
+        .catch(() => undefined);
+    } catch {
+      /* blessing is best-effort */
+    }
   }
 
   private ensureVoiceEl(): MinimalAudioEl {
@@ -168,59 +173,63 @@ export class AudioService {
     this.voiceSource = { lang, key: 'start' };
   }
 
-  private ensureKeepAliveEl(): MinimalAudioEl {
-    if (this.keepAliveEl) return this.keepAliveEl;
-    try {
-      const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
-      const el = factory(silentLoopWavDataUri());
-      el.loop = true;
-      this.keepAliveEl = el;
-      return el;
-    } catch {
-      return null as unknown as MinimalAudioEl;
-    }
-  }
-
   voice(key: VoiceKey, enqueue = false): void {
     if (!this.deps.voiceOn()) return;
     const lang = this.deps.lang();
     diagCount(`voice.${lang}.${key}`);
     if (enqueue && this.voicePlaying) {
-      this.voiceQueue.push({ lang, key });
+      this.channelQueue.push(() => this.playVoice(lang, key));
       return;
     }
-    if (!enqueue) this.voiceQueue = [];
+    if (!enqueue) this.channelQueue = [];
     this.playVoice(lang, key);
   }
 
+  beep(kind: BeepKind): void {
+    if (!this.deps.beepsOn()) return;
+    if (kind === 'end' && this.deps.voiceOn()) return;
+    diagCount(`beep.${kind}`);
+    if (this.voicePlaying) {
+      this.channelQueue.push(() => this.playBeepNow(kind));
+      return;
+    }
+    this.channelQueue = [];
+    this.playBeepNow(kind);
+  }
+
+  private playBeepNow(kind: BeepKind): void {
+    this.playOnChannel(wavFromTones(BEEP_SEGMENTS[kind]), `beep.${kind}`);
+  }
+
   private playVoice(lang: Lang, key: VoiceKey): void {
+    this.playOnChannel(AudioService.urlFor(lang, key), `voice.${lang}.${key}`);
+  }
+
+  private playOnChannel(src: string, label: string): void {
     const el = this.ensureVoiceEl();
     try {
       el.pause();
       this.voicePlaying = true;
       this.setAudioSessionType(this.deps.voiceInSilentMode() ? 'playback' : 'transient');
-      const sourceChanged = this.voiceSource?.lang !== lang || this.voiceSource.key !== key;
-      if (sourceChanged) {
-        el.src = AudioService.urlFor(lang, key);
+      if (el.src !== src) {
+        el.src = src;
         el.load();
-        this.voiceSource = { lang, key };
       }
       el.loop = false;
       el.onended = () => {
-        diag('voice.ended', { key, lang });
-        this.finishVoice();
+        diag(`${label}.ended`, {});
+        this.finishChannel();
       };
       el.onerror = () => {
-        diag('voice.mediaError', key);
-        this.finishVoice();
+        diag(`${label}.mediaError`, {});
+        this.finishChannel();
       };
       el.currentTime = 0;
       void el
         .play()
         .then(() =>
-          diag('voice.playResolved', {
-            key,
-            lang,
+          diag('channel.playResolved', {
+            label,
             volume: el.volume,
             muted: el.muted ?? false,
             paused: el.paused ?? false,
@@ -228,20 +237,20 @@ export class AudioService {
           }),
         )
         .catch((err) => {
-          diag('voice.playFail', { key, err: String(err).slice(0, 120) });
-          this.finishVoice();
+          diag('channel.playFail', { label, err: String(err).slice(0, 120) });
+          this.finishChannel();
         });
     } catch (err) {
-      diag('voice.channelFail', { key, err: String(err).slice(0, 120) });
-      this.finishVoice();
+      diag('channel.fail', { label, err: String(err).slice(0, 120) });
+      this.finishChannel();
     }
   }
 
-  private finishVoice(): void {
+  private finishChannel(): void {
     this.voicePlaying = false;
-    const next = this.voiceQueue.shift();
+    const next = this.channelQueue.shift();
     if (next) {
-      this.playVoice(next.lang, next.key);
+      next();
       return;
     }
     this.setAudioSessionType('auto');
@@ -257,23 +266,6 @@ export class AudioService {
     } catch {
       diag('audioSession.typeFail', type);
       return false;
-    }
-  }
-
-  beep(kind: BeepKind): void {
-    if (!this.deps.beepsOn()) return;
-    const ctx = this.ensureCtx();
-    if (!ctx) return;
-    const t0 = ctx.currentTime;
-    if (kind === 'end') {
-      this.tone(ctx, 880, t0, 0.09, 0.18);
-      this.tone(ctx, 880, t0 + 0.14, 0.09, 0.18);
-      this.tone(ctx, 1175, t0 + 0.28, 0.16, 0.22);
-    } else if (kind === 'tick') {
-      this.tone(ctx, 1200, t0, 0.035, 0.12);
-    } else {
-      this.tone(ctx, 660, t0, 0.12, 0.16);
-      this.tone(ctx, 990, t0 + 0.15, 0.2, 0.18);
     }
   }
 
@@ -299,15 +291,16 @@ export class AudioService {
     return this.unlocked;
   }
 
-  private ensureCtx(): MinimalAudioCtx | null {
-    if (this.ctx) return this.ctx;
+  private ensureKeepAliveEl(): MinimalAudioEl {
+    if (this.keepAliveEl) return this.keepAliveEl;
     try {
-      const factory = this.deps.createCtx ?? defaultCtxFactory;
-      this.ctx = factory();
-      void this.ctx.resume().catch(() => undefined);
-      return this.ctx;
+      const factory = this.deps.createAudioEl ?? defaultAudioElFactory;
+      const el = factory(silentLoopWavDataUri(300));
+      el.loop = true;
+      this.keepAliveEl = el;
+      return el;
     } catch {
-      return null;
+      return null as unknown as MinimalAudioEl;
     }
   }
 
@@ -341,17 +334,60 @@ export class AudioService {
     bind('nexttrack', () => this.deps.onMediaAction('next'));
     bind('previoustrack', () => this.deps.onMediaAction('prev'));
   }
+}
 
-  private tone(ctx: MinimalAudioCtx, freq: number, at: number, dur: number, peak: number): void {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.value = freq;
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    gain.gain.setValueAtTime(0.0001, at);
-    gain.gain.exponentialRampToValueAtTime(peak, at + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, at + dur);
-    osc.start(at);
-    osc.stop(at + dur + 0.02);
+function silentChannelWavDataUri(): string {
+  const samples = Math.floor(SAMPLE_RATE * 0.05);
+  const view = new DataView(new ArrayBuffer(44 + samples * 2));
+  const ascii = (offset: number, text: string) => {
+    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + samples * 2, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, SAMPLE_RATE, true);
+  view.setUint32(28, SAMPLE_RATE * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, 'data');
+  view.setUint32(40, samples * 2, true);
+  const bytes = new Uint8Array(view.buffer);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+  return `data:audio/wav;base64,${btoa(bin)}`;
+}
+
+function silentLoopWavDataUri(amplitude: number): string {
+  const sr = 8000;
+  const samples = Math.floor(sr * 0.5);
+  const view = new DataView(new ArrayBuffer(44 + samples * 2));
+  const ascii = (offset: number, text: string) => {
+    for (let i = 0; i < text.length; i += 1) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+  ascii(0, 'RIFF');
+  view.setUint32(4, 36 + samples * 2, true);
+  ascii(8, 'WAVE');
+  ascii(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sr, true);
+  view.setUint32(28, sr * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  ascii(36, 'data');
+  view.setUint32(40, samples * 2, true);
+  const cycles = 4;
+  for (let i = 0; i < samples; i += 1) {
+    const wave = Math.sin((2 * Math.PI * cycles * i) / samples) * amplitude;
+    view.setInt16(44 + i * 2, Math.round(wave), true);
   }
+  const bytes = new Uint8Array(view.buffer);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]);
+  return `data:audio/wav;base64,${btoa(bin)}`;
 }

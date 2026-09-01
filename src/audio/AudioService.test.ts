@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { AudioService } from './AudioService';
-import type { MinimalAudioCtx, MinimalAudioEl } from './AudioService';
+import type { MinimalAudioEl } from './AudioService';
 
 type Call = { id: string; op: 'play' | 'pause' };
 
@@ -31,33 +31,6 @@ const fakeAudioEl = (id: string): MinimalAudioEl => {
   return el;
 };
 
-const fakeCtx = (): MinimalAudioCtx => {
-  const started: number[] = [];
-  return {
-    currentTime: 0,
-    resume: async () => undefined,
-    createOscillator: () => ({
-      frequency: { value: 0 },
-      connect: () => ({}) as unknown as MinimalOscLike,
-      start: (w: number) => {
-        started.push(w);
-      },
-      stop: () => undefined,
-    }) as unknown as import('./AudioService').MinimalOscNode,
-    createGain: () =>
-      ({
-        gain: {
-          setValueAtTime: () => undefined,
-          exponentialRampToValueAtTime: () => undefined,
-        },
-        connect: () => undefined,
-      }) as unknown as import('./AudioService').MinimalGainNode,
-    destination: {},
-  };
-};
-
-type MinimalOscLike = import('./AudioService').MinimalOscNode;
-
 const makeService = () =>
   new AudioService({
     lang: () => state.lang,
@@ -67,7 +40,6 @@ const makeService = () =>
     mediaControlsEnabled: () => true,
     onMediaAction: (a) => actions.push(a),
     createAudioEl: (url) => fakeAudioEl(url),
-    createCtx: () => fakeCtx(),
   });
 
 beforeEach(() => {
@@ -77,29 +49,27 @@ beforeEach(() => {
   state = { lang: 'ru', voice: true, beeps: true };
 });
 
-describe('AudioService', () => {
-  it('unlock prepares one voice channel without starting media', () => {
+describe('AudioService channel', () => {
+  it('unlock blesses exactly one silent channel within the gesture', async () => {
     const svc = makeService();
     svc.unlock();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     const plays = calls.filter((c) => c.op === 'play');
-    const pauses = calls.filter((c) => c.op === 'pause');
-    expect(plays).toHaveLength(0);
-    expect(pauses).toHaveLength(0);
+    expect(plays).toHaveLength(1);
+    expect(plays[0].id.startsWith('data:audio/wav')).toBe(true);
     expect(createdAudioEls).toHaveLength(1);
     expect(svc.isUnlocked).toBe(true);
   });
 
-  it('voice plays the file for the current language and resets time', () => {
+  it('voice plays the file for the current language', () => {
     const svc = makeService();
     svc.unlock();
     calls.length = 0;
     svc.voice('end');
-    const plays = calls.filter((c) => c.op === 'play');
-    expect(plays).toHaveLength(1);
-    expect(plays[0].id).toContain('/ru/end.mp3');
+    expect(calls.filter((c) => c.op === 'play' && c.id.includes('/ru/end.mp3'))).toHaveLength(1);
     state.lang = 'en';
     svc.voice('start');
-    expect(calls.filter((c) => c.op === 'play').at(-1)!.id).toContain('/en/start.mp3');
+    expect(calls.filter((c) => c.op === 'play' && c.id.includes('/en/start.mp3'))).toHaveLength(1);
   });
 
   it('new voice stops the previous one (single channel)', () => {
@@ -108,10 +78,9 @@ describe('AudioService', () => {
     calls.length = 0;
     svc.voice('start');
     svc.voice('end');
-    const startPauses = calls.filter((c) => c.id.includes('/ru/start.mp3') && c.op === 'pause');
-    expect(startPauses).toHaveLength(2);
-    const endPlays = calls.filter((c) => c.id.includes('/ru/end.mp3') && c.op === 'play');
-    expect(endPlays).toHaveLength(1);
+    expect(calls.filter((c) => c.op === 'play' && c.id.includes('/ru/start.mp3'))).toHaveLength(1);
+    expect(calls.filter((c) => c.op === 'play' && c.id.includes('/ru/end.mp3'))).toHaveLength(1);
+    expect(calls.filter((c) => c.op === 'pause' && c.id.includes('/ru/start.mp3'))).toHaveLength(1);
   });
 
   it('queues group completion after timer end voice', () => {
@@ -121,8 +90,7 @@ describe('AudioService', () => {
     svc.voice('end');
     svc.voice('groupDone', true);
     expect(calls.filter((c) => c.op === 'play' && c.id.includes('/groupDone.mp3'))).toHaveLength(0);
-    const channel = createdAudioEls.at(-1)!;
-    channel.onended?.();
+    createdAudioEls[0].onended?.();
     expect(calls.filter((c) => c.op === 'play' && c.id.includes('/groupDone.mp3'))).toHaveLength(1);
   });
 
@@ -132,6 +100,38 @@ describe('AudioService', () => {
     calls.length = 0;
     state.voice = false;
     svc.voice('end');
+    expect(calls.filter((c) => c.op === 'play')).toHaveLength(0);
+  });
+
+  it('end beep is skipped when voice is on, others still play as wav', () => {
+    const svc = makeService();
+    svc.unlock();
+    calls.length = 0;
+    svc.beep('end');
+    svc.beep('tick');
+    svc.beep('chime');
+    expect(calls.filter((c) => c.op === 'play' && c.id.startsWith('data:audio/wav'))).toHaveLength(1);
+    createdAudioEls[0].onended?.();
+    expect(calls.filter((c) => c.op === 'play' && c.id.startsWith('data:audio/wav'))).toHaveLength(2);
+  });
+
+  it('end beep plays as wav when voice is off', () => {
+    const svc = makeService();
+    svc.unlock();
+    calls.length = 0;
+    state.voice = false;
+    svc.beep('end');
+    expect(calls.filter((c) => c.op === 'play' && c.id.startsWith('data:audio/wav'))).toHaveLength(1);
+  });
+
+  it('beeps are suppressed when disabled', () => {
+    const svc = makeService();
+    svc.unlock();
+    calls.length = 0;
+    state.beeps = false;
+    state.voice = false;
+    svc.beep('end');
+    svc.beep('tick');
     expect(calls.filter((c) => c.op === 'play')).toHaveLength(0);
   });
 
@@ -156,15 +156,5 @@ describe('AudioService', () => {
     } finally {
       Object.defineProperty(navigator, 'mediaSession', { value: original, configurable: true });
     }
-  });
-
-  it('beeps are suppressed when disabled', () => {
-    const svc = makeService();
-    svc.unlock();
-    state.beeps = false;
-    expect(() => svc.beep('end')).not.toThrow();
-    state.beeps = true;
-    expect(() => svc.beep('chime')).not.toThrow();
-    expect(() => svc.beep('tick')).not.toThrow();
   });
 });
