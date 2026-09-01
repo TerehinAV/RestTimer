@@ -1,7 +1,7 @@
 {
   "name": "resttimer",
   "private": true,
-  "version": "0.1.24",
+  "version": "0.1.25",
   "type": "module",
   "description": "RestTimer — serverless gym rest-timer webapp (Telegram Mini App + browser), GitHub Pages hosted",
   "scripts": {
