@@ -276,6 +276,7 @@ export class AudioService {
   }
 
   syncMediaState(state: PlaybackState): void {
+    if (!this.deps.mediaControlsEnabled()) return;
     const ms = (navigator as { mediaSession?: { playbackState?: PlaybackState } }).mediaSession;
     if (ms) ms.playbackState = state;
   }
