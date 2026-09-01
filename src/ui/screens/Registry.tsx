@@ -18,6 +18,7 @@ import { startRun, focusRun, getEngine } from '../../boot';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
 import { GearIcon, PauseIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, TrashIcon } from '../components/Icons';
+import { APP_VERSION } from '../../diagnostics/diagnostics';
 
 export function RegistryScreen() {
   const groups = useApp((s) => s.registry.groups);
@@ -94,7 +95,7 @@ export function RegistryScreen() {
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">{t(lang, 'registryTitle')}</h1>
           <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
-            beta 0.1.15
+            beta {APP_VERSION}
           </span>
         </div>
         <div className="flex items-center gap-4 text-fg-muted">

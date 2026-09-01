@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import packageJson from './package.json';
 
 // Base path MUST match the GitHub Pages project URL:
 // https://<user>.github.io/<repo-name>/
@@ -11,6 +12,9 @@ export const BASE_PATH = '/RestTimer/';
 
 export default defineConfig({
   base: BASE_PATH,
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+  },
   plugins: [
     react(),
     tailwindcss(),

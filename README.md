@@ -1,6 +1,6 @@
 # RestTimer
 
-Мобильный вебапп таймеров отдыха для спорта. Работает как Telegram Mini App и как обычное веб-приложение, полностью серверлес — хостится на GitHub Pages. Версия **0.1.15 beta**. Автор: [TerehinAV](https://github.com/TerehinAV).
+Мобильный вебапп таймеров отдыха для спорта. Работает как Telegram Mini App и как обычное веб-приложение, полностью серверлес — хостится на GitHub Pages. Версия **0.1.18 beta**. Автор: [TerehinAV](https://github.com/TerehinAV).
 
 **Терминология:** _серия_ — настраиваемая последовательность таймеров отдыха (например «Жим лёжа: 1:30 × 8, +15с»); _таймер_ — один интервал отдыха внутри серии; _сессия_ — конкретный запуск серии.
 
@@ -23,7 +23,7 @@
 | UI | React 19, Vite 6, TypeScript, Tailwind CSS 4, Motion (анимации), dnd-kit (сортировка) |
 | Состояние | zustand (persist → localStorage) |
 | Таймер-движок | собственный класс `TimerEngine` вне React: абсолютные дедлайны, единый цикл, resync по `visibilitychange` |
-| Аудио | `AudioService`: единый HTMLAudio-канал озвучки + WebAudio-бипы; transient Audio Session для best-effort ducking музыки |
+| Аудио | `AudioService`: единый HTMLAudio-канал озвучки + WebAudio-бипы; ambient Audio Session для смешивания с фоновой музыкой |
 | Сжатие/QR | lz-string, qrcode (генерация), jsqr (скан) |
 | PWA | vite-plugin-pwa (Workbox, precache кода и mp3) |
 | Тесты | Vitest + @sinonjs/fake-timers (codec, capacity, движок, аудио) |
@@ -148,7 +148,7 @@ scripts/     manifest.phrases.json, generate-voice.mjs
 
 ## Фоновая музыка, гарнитура и lock screen
 
-- Перед короткой голосовой фразой приложение best-effort переключает `navigator.audioSession` в `transient`, после `ended/error` возвращает `auto`. На поддерживаемых iOS музыка Apple Music/Spotify обычно смешивается или приглушается, но точный ducking браузеру не гарантирован. Нативный `AVAudioSession.duckOthers` вебу недоступен.
+- Перед короткой голосовой фразой приложение best-effort переключает `navigator.audioSession` в `ambient`, после `ended/error` возвращает `auto`. Цель — воспроизвести фразу параллельно с Apple Music/Spotify, не заменяя системный Now Playing. Точное смешивание зависит от версии WebKit; нативные `mixWithOthers/duckOthers` вебу недоступны.
 - Управление таймером кнопками Bluetooth-гарнитуры скрыто и отключено флагом `HEADSET_CONTROL_ENABLED`: на реальных iOS-устройствах оно ненадёжно, а в Telegram iOS `navigator.mediaSession` отключён внутри WKWebView.
 - Если перед блокировкой экрана активным было другое приложение, iOS может заморозить WebContent. Запустить новую фразу из приостановленного PWA/Mini App надёжно невозможно без постоянно активной аудиосессии (которая конфликтует с музыкой).
 - Живой countdown на lock screen невозможен в чистом PWA/Telegram Mini App. Для него нужен нативный iOS-компаньон с ActivityKit/Live Activities. Web Push может дать только отдельное уведомление и требует backend — это не обновляемый таймер.

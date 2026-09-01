@@ -57,6 +57,7 @@ export type AudioDeps = {
   lang: () => Lang;
   voiceOn: () => boolean;
   beepsOn: () => boolean;
+  mediaControlsEnabled: () => boolean;
   onMediaAction: (a: MediaAction) => void;
   createAudioEl?: (url: string) => MinimalAudioEl;
   createCtx?: () => MinimalAudioCtx;
@@ -131,31 +132,8 @@ export class AudioService {
   unlock(): void {
     if (this.unlocked) return;
     this.unlocked = true;
-    this.setAudioSessionType('auto');
-    if (!this.ctx) {
-      try {
-        const factory = this.deps.createCtx ?? defaultCtxFactory;
-        const ctx = factory();
-        void ctx.resume().catch(() => undefined);
-        this.ctx = ctx;
-      } catch {
-        this.ctx = null;
-      }
-    }
-    this.activateEl(this.ensureVoiceEl());
-    this.attachMediaSession();
-  }
-
-  private activateEl(el: MinimalAudioEl): void {
-    if (!el) return;
-    const activationSrc = el.src;
-    el.currentTime = 0;
-    void el
-      .play()
-      .then(() => {
-        if (el.src === activationSrc) el.pause();
-      })
-      .catch(() => undefined);
+    this.ensureVoiceEl();
+    if (this.deps.mediaControlsEnabled()) this.attachMediaSession();
   }
 
   private ensureVoiceEl(): MinimalAudioEl {
@@ -198,7 +176,7 @@ export class AudioService {
     try {
       el.pause();
       this.voicePlaying = true;
-      this.setAudioSessionType('transient');
+      this.setAudioSessionType('ambient');
       el.src = AudioService.urlFor(lang, key);
       el.loop = false;
       el.onended = () => this.finishVoice();
@@ -228,7 +206,7 @@ export class AudioService {
     this.setAudioSessionType('auto');
   }
 
-  private setAudioSessionType(type: 'auto' | 'transient'): void {
+  private setAudioSessionType(type: 'auto' | 'ambient'): void {
     const session = (navigator as { audioSession?: { type?: string } }).audioSession;
     if (!session || !('type' in session)) return;
     try {
@@ -277,9 +255,10 @@ export class AudioService {
 
   private ensureCtx(): MinimalAudioCtx | null {
     if (this.ctx) return this.ctx;
-    if (!this.deps.createCtx) return null;
     try {
-      this.ctx = this.deps.createCtx();
+      const factory = this.deps.createCtx ?? defaultCtxFactory;
+      this.ctx = factory();
+      void this.ctx.resume().catch(() => undefined);
       return this.ctx;
     } catch {
       return null;

@@ -33,6 +33,7 @@ export function startRun(config: GroupConfig): void {
 }
 
 export function runAction(action: RunAction, runId?: string): void {
+  if (action === 'tap' || action === 'resume') getAudio().unlock();
   getEngine()[action](runId);
   haptic('tap');
 }
@@ -97,6 +98,7 @@ export function boot(): void {
     lang: () => useApp.getState().lang,
     voiceOn: () => useApp.getState().settings.voiceOn,
     beepsOn: () => useApp.getState().settings.beepsOn,
+    mediaControlsEnabled: () => HEADSET_CONTROL_ENABLED,
     onMediaAction: (a) => {
       const eng = getEngine();
       if (a === 'play') eng.tap();
@@ -112,15 +114,6 @@ export function boot(): void {
   const app = useApp.getState();
   initTheme(() => useApp.getState().settings.themeMode);
   useApp.getState().setLang(resolveLang(app.settings.langMode, tgLocale(), navLangs()));
-
-  document.addEventListener(
-    'pointerdown',
-    () => {
-      audio!.unlock();
-      syncKeepAlive();
-    },
-    { once: true, capture: true },
-  );
 
   useApp.subscribe((state, prev) => {
     if (state.settings.mediaKeepAlive !== prev.settings.mediaKeepAlive) {

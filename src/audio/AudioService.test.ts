@@ -63,6 +63,7 @@ const makeService = () =>
     lang: () => state.lang,
     voiceOn: () => state.voice,
     beepsOn: () => state.beeps,
+    mediaControlsEnabled: () => true,
     onMediaAction: (a) => actions.push(a),
     createAudioEl: (url) => fakeAudioEl(url),
     createCtx: () => fakeCtx(),
@@ -76,15 +77,14 @@ beforeEach(() => {
 });
 
 describe('AudioService', () => {
-  it('unlock activates the voice pool and keepalive within the gesture', async () => {
+  it('unlock prepares one voice channel without starting media', () => {
     const svc = makeService();
     svc.unlock();
-    await new Promise((resolve) => setTimeout(resolve, 0));
     const plays = calls.filter((c) => c.op === 'play');
     const pauses = calls.filter((c) => c.op === 'pause');
-    expect(plays).toHaveLength(1);
-    expect(pauses).toHaveLength(1);
-    expect(plays[0].id.startsWith('data:audio/wav')).toBe(true);
+    expect(plays).toHaveLength(0);
+    expect(pauses).toHaveLength(0);
+    expect(createdAudioEls).toHaveLength(1);
     expect(svc.isUnlocked).toBe(true);
   });
 
