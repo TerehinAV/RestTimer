@@ -6,6 +6,7 @@ import { haptic } from '../../tg/tg';
 import { APP_VERSION, diagnosticsBase64 } from '../../diagnostics/diagnostics';
 import { useSwipeBack } from '../useSwipeBack';
 import { PencilIcon, TrashIcon } from '../components/Icons';
+import { playTestVoice } from '../../boot';
 
 export function SettingsScreen() {
   const settings = useApp((s) => s.settings);
@@ -19,6 +20,9 @@ export function SettingsScreen() {
   const tapTimes = useRef<number[]>([]);
   const [diagText, setDiagText] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [heardAsk, setHeardAsk] = useState(false);
+  const [silentWarn, setSilentWarn] = useState(false);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [tagName, setTagName] = useState('');
   const allTags = useMemo(() => [...new Set(groups.flatMap((group) => group.tags ?? []))], [groups]);
@@ -83,6 +87,28 @@ export function SettingsScreen() {
         <section className="space-y-2">
           <ToggleRow label={t(lang, 'voiceTitle')} on={settings.voiceOn} onChange={(on) => updateSettings({ voiceOn: on })} />
           <ToggleRow label={t(lang, 'beepsTitle')} on={settings.beepsOn} onChange={(on) => updateSettings({ beepsOn: on })} />
+          <ToggleRow
+            label={t(lang, 'voiceSilentTitle')}
+            on={settings.voiceInSilentMode}
+            onChange={(on) => updateSettings({ voiceInSilentMode: on })}
+          />
+          {isIOS && !settings.voiceInSilentMode && settings.voiceOn && (
+            <p className="rounded-xl bg-card px-4 py-3 text-xs leading-relaxed text-fg-muted">
+              {t(lang, 'silentHint')}
+            </p>
+          )}
+          {settings.voiceOn && (
+            <button
+              type="button"
+              className="w-full rounded-xl bg-card px-4 py-3 text-sm font-medium text-accent active:opacity-70"
+              onClick={() => {
+                playTestVoice();
+                setTimeout(() => setHeardAsk(true), 700);
+              }}
+            >
+              {t(lang, 'testSound')}
+            </button>
+          )}
         </section>
 
         <section>
@@ -158,6 +184,50 @@ export function SettingsScreen() {
         {toast && (
           <div className="absolute inset-x-0 bottom-10 z-30 mx-auto w-fit rounded-full bg-bg-elev px-4 py-2 text-sm shadow-lg">
             {toast}
+          </div>
+        )}
+        {heardAsk && !silentWarn && (
+          <div className="absolute inset-x-4 bottom-16 z-40 rounded-xl bg-bg-elev p-4 shadow-lg">
+            <p className="text-center text-sm">{t(lang, 'heardTitle')}</p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg bg-go py-2 text-sm font-semibold text-black"
+                onClick={() => setHeardAsk(false)}
+              >
+                {t(lang, 'heardYes')}
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-lg bg-warn py-2 text-sm font-semibold text-white"
+                onClick={() => {
+                  setHeardAsk(false);
+                  setSilentWarn(true);
+                }}
+              >
+                {t(lang, 'heardNo')}
+              </button>
+            </div>
+          </div>
+        )}
+        {silentWarn && (
+          <div className="absolute inset-x-4 bottom-16 z-40 rounded-xl bg-bg-elev p-4 shadow-lg">
+            <p className="text-sm leading-relaxed">{t(lang, 'silentHint')}</p>
+            {!settings.voiceInSilentMode && (
+              <button
+                type="button"
+                className="mt-3 w-full rounded-lg bg-go py-2 text-sm font-semibold text-black"
+                onClick={() => {
+                  updateSettings({ voiceInSilentMode: true });
+                  setSilentWarn(false);
+                }}
+              >
+                {t(lang, 'silentFix')}
+              </button>
+            )}
+            <button type="button" className="mt-2 w-full rounded-lg bg-card py-2 text-sm" onClick={() => setSilentWarn(false)}>
+              ✕
+            </button>
           </div>
         )}
         {diagText && (

@@ -50,7 +50,7 @@ export const useApp = create<AppState>()(
       customPresets: [],
       countIncPresets: [],
       lastMaster: { count: 5, incSec: 0 },
-      settings: { themeMode: 'auto', langMode: 'auto', voiceOn: true, beepsOn: true, mediaKeepAlive: true },
+      settings: { themeMode: 'auto', langMode: 'auto', voiceOn: true, beepsOn: true, mediaKeepAlive: true, voiceInSilentMode: true },
       screen: { name: 'registry' },
       lang: 'en',
       runs: [],

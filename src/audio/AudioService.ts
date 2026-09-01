@@ -60,6 +60,7 @@ export type AudioDeps = {
   lang: () => Lang;
   voiceOn: () => boolean;
   beepsOn: () => boolean;
+  voiceInSilentMode: () => boolean;
   mediaControlsEnabled: () => boolean;
   onMediaAction: (a: MediaAction) => void;
   createAudioEl?: (url: string) => MinimalAudioEl;
@@ -197,7 +198,7 @@ export class AudioService {
     try {
       el.pause();
       this.voicePlaying = true;
-      this.setAudioSessionType('transient');
+      this.setAudioSessionType(this.deps.voiceInSilentMode() ? 'playback' : 'transient');
       const sourceChanged = this.voiceSource?.lang !== lang || this.voiceSource.key !== key;
       if (sourceChanged) {
         el.src = AudioService.urlFor(lang, key);
@@ -246,7 +247,7 @@ export class AudioService {
     this.setAudioSessionType('auto');
   }
 
-  private setAudioSessionType(type: 'auto' | 'transient'): void {
+  private setAudioSessionType(type: 'auto' | 'transient' | 'playback'): void {
     const session = (navigator as { audioSession?: { type?: string } }).audioSession;
     if (!session || !('type' in session)) return;
     try {

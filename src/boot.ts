@@ -25,6 +25,11 @@ export function getAudio(): AudioService {
   return audio;
 }
 
+export function playTestVoice(): void {
+  diagCount('testSound');
+  getAudio().voice('hello');
+}
+
 export function startRun(config: GroupConfig): void {
   diagCount('run.start');
   getAudio().prepareStart();
@@ -99,6 +104,7 @@ export function boot(): void {
     lang: () => useApp.getState().lang,
     voiceOn: () => useApp.getState().settings.voiceOn,
     beepsOn: () => useApp.getState().settings.beepsOn,
+    voiceInSilentMode: () => useApp.getState().settings.voiceInSilentMode,
     mediaControlsEnabled: () => HEADSET_CONTROL_ENABLED,
     onMediaAction: (a) => {
       const eng = getEngine();

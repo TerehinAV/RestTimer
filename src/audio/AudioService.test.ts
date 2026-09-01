@@ -63,6 +63,7 @@ const makeService = () =>
     lang: () => state.lang,
     voiceOn: () => state.voice,
     beepsOn: () => state.beeps,
+    voiceInSilentMode: () => true,
     mediaControlsEnabled: () => true,
     onMediaAction: (a) => actions.push(a),
     createAudioEl: (url) => fakeAudioEl(url),

@@ -79,4 +79,5 @@ export type Settings = {
   voiceOn: boolean;
   beepsOn: boolean;
   mediaKeepAlive: boolean;
+  voiceInSilentMode: boolean;
 };
