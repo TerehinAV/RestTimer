@@ -198,7 +198,11 @@ export class AudioService {
     try {
       el.pause();
       this.voicePlaying = true;
-      this.setAudioSessionType(this.deps.voiceInSilentMode() ? 'playback' : 'transient');
+      if (this.deps.voiceInSilentMode()) {
+        this.setAudioSessionType('playback');
+      } else if (!this.setAudioSessionType('transient-solo')) {
+        this.setAudioSessionType('transient');
+      }
       const sourceChanged = this.voiceSource?.lang !== lang || this.voiceSource.key !== key;
       if (sourceChanged) {
         el.src = AudioService.urlFor(lang, key);
@@ -247,14 +251,16 @@ export class AudioService {
     this.setAudioSessionType('auto');
   }
 
-  private setAudioSessionType(type: 'auto' | 'transient' | 'playback'): void {
+  private setAudioSessionType(type: 'auto' | 'transient' | 'transient-solo' | 'playback'): boolean {
     const session = (navigator as { audioSession?: { type?: string } }).audioSession;
-    if (!session || !('type' in session)) return;
+    if (!session || !('type' in session)) return false;
     try {
       session.type = type;
       diag('audioSession.type', type);
+      return true;
     } catch {
       diag('audioSession.typeFail', type);
+      return false;
     }
   }
 
