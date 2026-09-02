@@ -5,7 +5,7 @@ import { focusRun, runAction } from '../../boot';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
-import { BellOffIcon, PrevIcon, RestartIcon, SkipIcon } from '../components/Icons';
+import { PrevIcon, RestartIcon, SkipIcon } from '../components/Icons';
 
 export function RunScreen() {
   const runs = useApp((s) => s.runs);
@@ -14,8 +14,6 @@ export function RunScreen() {
   const setScreen = useApp((s) => s.setScreen);
   const touchStart = useRef<number | null>(null);
   const [confirmAbort, setConfirmAbort] = useState(false);
-  const [silentTip, setSilentTip] = useState(false);
-  const voiceInSilentMode = useApp((s) => s.settings.voiceInSilentMode);
 
   const startedRuns = runs.filter((r) => r.actualMs > 0);
   const run = runs.find((r) => r.runId === focusedRunId) ?? runs[0];
@@ -61,7 +59,13 @@ export function RunScreen() {
         <button type="button" className="px-2 py-1 text-2xl leading-none text-fg-muted" onClick={() => setScreen({ name: 'registry' })}>
           ‹
         </button>
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+        <div
+          className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1 [scrollbar-width:none]"
+          style={{
+            maskImage: 'linear-gradient(to right, transparent 0, black 20px, black calc(100% - 28px), transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0, black 20px, black calc(100% - 28px), transparent 100%)',
+          }}
+        >
           {startedRuns.map((r) => {
             const st = r.timers[r.current]?.status;
             const isFocused = r.runId === run.runId;
@@ -85,20 +89,6 @@ export function RunScreen() {
             );
           })}
         </div>
-        {!voiceInSilentMode && (
-          <button
-            type="button"
-            aria-label="silent mode hint"
-            className="shrink-0 p-1 text-warn active:opacity-60"
-            onClick={() => {
-              haptic('tap');
-              setSilentTip((v) => !v);
-              setTimeout(() => setSilentTip(false), 5000);
-            }}
-          >
-            <BellOffIcon className="h-4 w-4" />
-          </button>
-        )}
         {run.runStatus === 'active' && run.actualMs > 0 && (
           <button
             type="button"
@@ -229,12 +219,6 @@ export function RunScreen() {
           )}
         </div>
       </footer>
-
-      {silentTip && (
-        <div className="absolute inset-x-8 top-20 z-40 rounded-xl bg-bg-elev px-4 py-3 text-xs leading-relaxed text-fg-muted shadow-lg">
-          {t(lang, 'silentHint')}
-        </div>
-      )}
 
       {confirmAbort && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 px-8" onClick={() => setConfirmAbort(false)}>

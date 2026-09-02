@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { startRun, focusRun, getEngine } from '../../boot';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
-import { BellOffIcon, GearIcon, PauseIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, SpeakerIcon, TrashIcon } from '../components/Icons';
+import { GearIcon, PauseIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, SpeakerIcon, TrashIcon } from '../components/Icons';
 import { APP_VERSION } from '../../diagnostics/diagnostics';
 
 export function RegistryScreen() {
@@ -29,8 +29,6 @@ export function RegistryScreen() {
 
   const [deleted, setDeleted] = useState<{ group: GroupConfig; index: number } | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
-  const [silentTip, setSilentTip] = useState(false);
-  const voiceInSilentMode = useApp((s) => s.settings.voiceInSilentMode);
   const focusedRunId = useApp((s) => s.focusedRunId);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -95,27 +93,13 @@ export function RegistryScreen() {
   return (
     <main className="flex h-full flex-col bg-bg">
       <header className="flex items-center justify-between px-4 pb-2 pt-5">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold">{t(lang, 'registryTitle')}</h1>
+        <div className="flex min-w-0 items-center gap-2">
+          <h1 className="truncate text-2xl font-bold">{t(lang, 'registryTitle')}</h1>
           <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
             beta {APP_VERSION}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-fg-muted">
-          {!voiceInSilentMode && (
-            <button
-              type="button"
-              aria-label="silent mode hint"
-              className="relative text-warn"
-              onClick={() => {
-                haptic('tap');
-                setSilentTip((v) => !v);
-                setTimeout(() => setSilentTip(false), 5000);
-              }}
-            >
-              <BellOffIcon />
-            </button>
-          )}
+        <div className="flex shrink-0 items-center gap-4 text-fg-muted">
           <button type="button" aria-label="share" onClick={() => setScreen({ name: 'share' })}>
             <ShareIcon />
           </button>
@@ -153,12 +137,6 @@ export function RegistryScreen() {
               {tag}
             </button>
           ))}
-        </div>
-      )}
-
-      {silentTip && (
-        <div className="mx-4 mb-2 rounded-xl bg-card px-4 py-3 text-xs leading-relaxed text-fg-muted">
-          {t(lang, 'silentHint')}
         </div>
       )}
 
