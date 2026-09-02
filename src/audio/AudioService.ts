@@ -107,6 +107,8 @@ export class AudioService {
   private voiceSource: { lang: Lang; key: VoiceKey } | null = null;
   private voicePlaying = false;
   private channelQueue: Array<() => void> = [];
+  private channelSeq = 0;
+  private autoResetTimer: ReturnType<typeof setTimeout> | null = null;
   private keepAliveEl: MinimalAudioEl | null = null;
   private keepAliveActive = false;
   private unlocked = false;
@@ -207,6 +209,12 @@ export class AudioService {
 
   private playOnChannel(src: string, label: string): void {
     const el = this.ensureVoiceEl();
+    const seq = (this.channelSeq += 1);
+    if (this.autoResetTimer) {
+      clearTimeout(this.autoResetTimer);
+      this.autoResetTimer = null;
+    }
+    const isCurrent = () => this.channelSeq === seq;
     try {
       el.pause();
       this.voicePlaying = true;
@@ -217,10 +225,12 @@ export class AudioService {
       }
       el.loop = false;
       el.onended = () => {
+        if (!isCurrent()) return;
         diag(`${label}.ended`, {});
         this.finishChannel();
       };
       el.onerror = () => {
+        if (!isCurrent()) return;
         diag(`${label}.mediaError`, {});
         this.finishChannel();
       };
@@ -238,7 +248,7 @@ export class AudioService {
         )
         .catch((err) => {
           diag('channel.playFail', { label, err: String(err).slice(0, 120) });
-          this.finishChannel();
+          if (isCurrent()) this.finishChannel();
         });
     } catch (err) {
       diag('channel.fail', { label, err: String(err).slice(0, 120) });
@@ -253,7 +263,10 @@ export class AudioService {
       next();
       return;
     }
-    this.setAudioSessionType('auto');
+    const seq = this.channelSeq;
+    this.autoResetTimer = setTimeout(() => {
+      if (this.channelSeq === seq && !this.voicePlaying) this.setAudioSessionType('auto');
+    }, 1500);
   }
 
   private setAudioSessionType(type: 'auto' | 'transient' | 'playback'): boolean {

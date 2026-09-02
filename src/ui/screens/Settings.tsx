@@ -85,8 +85,16 @@ export function SettingsScreen() {
         </section>
 
         <section className="space-y-2">
-          <ToggleRow label={t(lang, 'voiceTitle')} on={settings.voiceOn} onChange={(on) => updateSettings({ voiceOn: on })} />
-          <ToggleRow label={t(lang, 'beepsTitle')} on={settings.beepsOn} onChange={(on) => updateSettings({ beepsOn: on })} />
+          <ToggleRow
+            label={t(lang, 'voiceTitle')}
+            on={settings.voiceOn}
+            onChange={(on) => updateSettings(on ? { voiceOn: true, beepsOn: false } : { voiceOn: false })}
+          />
+          <ToggleRow
+            label={t(lang, 'beepsTitle')}
+            on={settings.beepsOn}
+            onChange={(on) => updateSettings(on ? { beepsOn: true, voiceOn: false } : { beepsOn: false })}
+          />
           <ToggleRow
             label={t(lang, 'voiceSilentTitle')}
             on={settings.voiceInSilentMode}

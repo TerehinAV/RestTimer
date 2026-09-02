@@ -13,7 +13,7 @@ import { initTheme, navLangs } from './theme/apply';
 let engine: TimerEngine | null = null;
 let audio: AudioService | null = null;
 
-export type RunAction = 'tap' | 'pause' | 'resume' | 'skip' | 'restart' | 'previous' | 'finish';
+export type RunAction = 'tap' | 'pause' | 'resume' | 'skip' | 'restart' | 'previous' | 'finish' | 'bumpNext';
 
 export function getEngine(): TimerEngine {
   if (!engine) throw new Error('boot() not called');
@@ -45,6 +45,7 @@ export function runAction(action: RunAction, runId?: string): void {
 }
 
 export function focusRun(runId: string): void {
+  diag('focus', runId);
   getEngine().focus(runId);
   haptic('select');
 }
@@ -66,7 +67,7 @@ function handleEngineEvent(e: EngineEvent): void {
       break;
     case 'cue':
       if (e.focused) svc.voice(e.key);
-      else svc.beep('tick');
+      else if (!useApp.getState().settings.voiceOn) svc.beep('tick');
       break;
     case 'timerEnded':
       if (e.focused) {

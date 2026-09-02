@@ -276,6 +276,28 @@ describe('previous and finish', () => {
   });
 });
 
+describe('bumpNext', () => {
+  it('adds delta to upcoming timers only', () => {
+    engine.start(cfg({ startSec: 30, count: 3, incSec: 0 }));
+    engine.tap();
+    clock.tick(30_000);
+    engine.tick();
+    engine.bumpNext(undefined, 5);
+    const snap = lastSnapshot()[0];
+    expect(snap.timers[1].durMs).toBe(35_000);
+    expect(snap.timers[2].durMs).toBe(35_000);
+    expect(snap.timers[0].durMs).toBe(30_000);
+    expect(snap.plannedMs).toBe(100_000);
+  });
+
+  it('caps bumped duration at the max limit', () => {
+    engine.start(cfg({ startSec: 1800, count: 2, incSec: 0 }));
+    engine.tap();
+    engine.bumpNext(undefined, 5);
+    expect(lastSnapshot()[0].timers[1].durMs).toBe(1_800_000);
+  });
+});
+
 describe('overrun timer', () => {
   it('counts after timer ends until the next timer starts', () => {
     engine.start(cfg({ startSec: 10, count: 2 }));

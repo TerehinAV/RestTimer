@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
-import { plannedMs, timerDurMs } from '../core/time';
+import { timerDurMs } from '../core/time';
 import type { GroupConfig, RunSnapshot, TimerStatus, VoiceKey } from '../core/types';
+import { LIMITS } from '../core/types';
 
 export type CueKey = Extract<VoiceKey, `n${number}`>;
 
@@ -191,6 +192,19 @@ export class TimerEngine {
     this.emitSnapshot();
   }
 
+  bumpNext(runId = this.focusedRunId, deltaSec = 5): void {
+    const run = runId ? this.runs.get(runId) : undefined;
+    if (!run || run.finishedAt !== null) return;
+    const deltaMs = deltaSec * 1000;
+    for (let i = run.current; i < run.timers.length; i += 1) {
+      const t = run.timers[i];
+      if (t.status !== 'waiting') continue;
+      t.durMs = Math.min(t.durMs + deltaMs, LIMITS.startSecMax * 1000);
+      t.remainMs = t.durMs;
+    }
+    this.emitSnapshot();
+  }
+
   finish(runId = this.focusedRunId): void {
     const run = runId ? this.runs.get(runId) : undefined;
     if (!run || run.finishedAt !== null) return;
@@ -334,7 +348,7 @@ export class TimerEngine {
         durMs: t.durMs,
       })),
       current: Math.min(run.current, run.timers.length - 1),
-      plannedMs: plannedMs(run.config),
+      plannedMs: run.timers.reduce((acc, t) => acc + t.durMs, 0),
       actualMs,
       overrunMs:
         run.overrunStartedAt === null ? 0 : Math.min(now - run.overrunStartedAt, run.overrunLimitMs),

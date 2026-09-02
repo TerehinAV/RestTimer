@@ -108,6 +108,8 @@ export const en: Dict = {
   heardNo: 'No, silence',
   silentHint: 'On iPhone the silent switch mutes voice cues. Enable "Voice in silent mode" or flip the ringer switch.',
   silentFix: 'Enable voice in silent mode',
+  bumpNextLabel: '+5s next',
+  voicedHint: 'this timer is voiced',
   beepsTitle: 'Sound beeps',
   on: 'On',
   off: 'Off',

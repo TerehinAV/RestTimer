@@ -5,7 +5,7 @@ import { focusRun, runAction } from '../../boot';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
-import { PrevIcon, RestartIcon, SkipIcon } from '../components/Icons';
+import { BellOffIcon, PrevIcon, RestartIcon, SkipIcon } from '../components/Icons';
 
 export function RunScreen() {
   const runs = useApp((s) => s.runs);
@@ -14,6 +14,8 @@ export function RunScreen() {
   const setScreen = useApp((s) => s.setScreen);
   const touchStart = useRef<number | null>(null);
   const [confirmAbort, setConfirmAbort] = useState(false);
+  const [silentTip, setSilentTip] = useState(false);
+  const voiceInSilentMode = useApp((s) => s.settings.voiceInSilentMode);
 
   const startedRuns = runs.filter((r) => r.actualMs > 0);
   const run = runs.find((r) => r.runId === focusedRunId) ?? runs[0];
@@ -83,6 +85,20 @@ export function RunScreen() {
             );
           })}
         </div>
+        {!voiceInSilentMode && (
+          <button
+            type="button"
+            aria-label="silent mode hint"
+            className="shrink-0 p-1 text-warn active:opacity-60"
+            onClick={() => {
+              haptic('tap');
+              setSilentTip((v) => !v);
+              setTimeout(() => setSilentTip(false), 5000);
+            }}
+          >
+            <BellOffIcon className="h-4 w-4" />
+          </button>
+        )}
         {run.runStatus === 'active' && run.actualMs > 0 && (
           <button
             type="button"
@@ -181,10 +197,18 @@ export function RunScreen() {
       </section>
 
       <footer className="px-6 pb-safe">
-        <div className="mb-2 flex items-center justify-center text-xs text-fg-muted">
+        <div className="mb-2 flex items-center justify-between text-xs text-fg-muted">
+          <span className="w-16" />
           <span className="font-mono-timer tabular-nums">
             {run.current + 1}/{run.timers.length}
           </span>
+          <button
+            type="button"
+            className="w-16 rounded-full bg-card py-1.5 text-[11px] text-fg-muted active:opacity-60"
+            onClick={() => runAction('bumpNext')}
+          >
+            {t(lang, 'bumpNextLabel')}
+          </button>
         </div>
         <div className="flex items-center justify-center gap-3">
           <AnimatePresence mode="popLayout">
@@ -205,6 +229,12 @@ export function RunScreen() {
           )}
         </div>
       </footer>
+
+      {silentTip && (
+        <div className="absolute inset-x-8 top-20 z-40 rounded-xl bg-bg-elev px-4 py-3 text-xs leading-relaxed text-fg-muted shadow-lg">
+          {t(lang, 'silentHint')}
+        </div>
+      )}
 
       {confirmAbort && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 px-8" onClick={() => setConfirmAbort(false)}>

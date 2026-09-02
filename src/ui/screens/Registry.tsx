@@ -17,7 +17,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { startRun, focusRun, getEngine } from '../../boot';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
-import { GearIcon, PauseIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, TrashIcon } from '../components/Icons';
+import { BellOffIcon, GearIcon, PauseIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, SpeakerIcon, TrashIcon } from '../components/Icons';
 import { APP_VERSION } from '../../diagnostics/diagnostics';
 
 export function RegistryScreen() {
@@ -29,6 +29,9 @@ export function RegistryScreen() {
 
   const [deleted, setDeleted] = useState<{ group: GroupConfig; index: number } | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [silentTip, setSilentTip] = useState(false);
+  const voiceInSilentMode = useApp((s) => s.settings.voiceInSilentMode);
+  const focusedRunId = useApp((s) => s.focusedRunId);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allTags = useMemo(() => [...new Set(groups.flatMap((g) => g.tags ?? []))], [groups]);
@@ -99,6 +102,20 @@ export function RegistryScreen() {
           </span>
         </div>
         <div className="flex items-center gap-4 text-fg-muted">
+          {!voiceInSilentMode && (
+            <button
+              type="button"
+              aria-label="silent mode hint"
+              className="relative text-warn"
+              onClick={() => {
+                haptic('tap');
+                setSilentTip((v) => !v);
+                setTimeout(() => setSilentTip(false), 5000);
+              }}
+            >
+              <BellOffIcon />
+            </button>
+          )}
           <button type="button" aria-label="share" onClick={() => setScreen({ name: 'share' })}>
             <ShareIcon />
           </button>
@@ -139,6 +156,12 @@ export function RegistryScreen() {
         </div>
       )}
 
+      {silentTip && (
+        <div className="mx-4 mb-2 rounded-xl bg-card px-4 py-3 text-xs leading-relaxed text-fg-muted">
+          {t(lang, 'silentHint')}
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {groups.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -160,6 +183,7 @@ export function RegistryScreen() {
                       activeRun={
                         active && activeTimer ? { remainMs: activeTimer.remainMs, status: activeTimer.status } : undefined
                       }
+                      isVoiced={active?.runId === focusedRunId}
                       onTap={() => onCardTap(group)}
                       onEdit={() => setScreen({ name: 'master', configId: group.id })}
                       onDelete={() => removeAt(i)}
@@ -205,6 +229,7 @@ export function RegistryScreen() {
 function SortableCard({
   group,
   activeRun,
+  isVoiced,
   lang,
   onTap,
   onEdit,
@@ -212,6 +237,7 @@ function SortableCard({
 }: {
   group: GroupConfig;
   activeRun?: { remainMs: number; status: string };
+  isVoiced?: boolean;
   lang: 'ru' | 'en';
   onTap: () => void;
   onEdit: () => void;
@@ -268,6 +294,7 @@ function SortableCard({
                   activeRun.status === 'running' ? 'text-go' : activeRun.status === 'paused' ? 'text-accent' : 'text-fg-muted'
                 }`}
               >
+                {isVoiced && <SpeakerIcon className="h-3.5 w-3.5" />}
                 {activeRun.status === 'paused' ? (
                   <PauseIcon className="h-3 w-3" />
                 ) : (
