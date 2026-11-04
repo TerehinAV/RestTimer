@@ -135,6 +135,7 @@ export const ru = {
   sortUsage: 'Недавние',
   whatsNewTitle: 'Что нового',
   groupsSearchPlaceholder: 'поиск групп',
+  groupsNoMatch: 'Групп не найдено',
 } as const;
 
 export type Dict = { [K in keyof typeof ru]: string };

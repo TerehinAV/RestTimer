@@ -1,6 +1,6 @@
 import { APP_VERSION } from './diagnostics';
 
-export type ChangeNote = { where: string; what: string; try: string };
+export type ChangeNote = { where: string; what: string; try: string; kind?: 'feature' | 'fix' };
 
 const NOTES: Record<string, { ru: ChangeNote[]; en: ChangeNote[] }> = {
   '0.2.1': {

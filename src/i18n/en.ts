@@ -136,4 +136,5 @@ export const en: Dict = {
   sortUsage: 'Recent',
   whatsNewTitle: "What's new",
   groupsSearchPlaceholder: 'search groups',
+  groupsNoMatch: 'No groups found',
 };

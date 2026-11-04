@@ -8,6 +8,7 @@ import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
 import { Wheel } from '../components/Wheel';
+import { CheckIcon } from '../components/Icons';
 import { HelpTip } from '../components/HelpTip';
 import type { WheelItem } from '../components/Wheel';
 
@@ -223,7 +224,7 @@ export function MasterScreen() {
           <div className="space-y-2">
             <p className="flex items-center justify-center gap-1.5 text-center text-xs uppercase tracking-widest text-fg-muted">
               {t(lang, 'countIncPresetsLabel')}
-              <HelpTip text={t(lang, 'countIncHelp')} direction="up" />
+              <HelpTip text={t(lang, 'countIncHelp')} modal />
             </p>
             {countIncPresets.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2">
@@ -245,29 +246,23 @@ export function MasterScreen() {
                 ))}
               </div>
             )}
-            {countIncMatch ? (
-              <button
-                type="button"
-                className="w-full rounded-full bg-card px-3 py-2 text-xs text-warn active:opacity-70"
-                onClick={() => {
+            <button
+              type="button"
+              className={`h-9 w-full rounded-full px-3 text-xs font-medium transition-colors active:opacity-70 ${
+                countIncMatch ? 'bg-card text-warn' : 'bg-accent-soft text-accent'
+              }`}
+              onClick={() => {
+                if (countIncMatch) {
                   removeCountIncPreset(countIncMatch.id);
                   haptic('warn');
-                }}
-              >
-                {t(lang, 'deleteTemplate')}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="w-full rounded-full bg-accent-soft px-3 py-2 text-xs text-accent active:opacity-70"
-                onClick={() => {
+                } else {
                   saveCountIncPreset(count, incSec);
                   haptic('notify');
-                }}
-              >
-                {t(lang, 'saveTemplate')}
-              </button>
-            )}
+                }
+              }}
+            >
+              {countIncMatch ? t(lang, 'deleteTemplate') : t(lang, 'saveTemplate')}
+            </button>
           </div>
         </section>
       )}
@@ -306,20 +301,32 @@ export function MasterScreen() {
               ))}
               {tags.length < LIMITS.tagsPerGroupMax && (
                 <div className="flex items-center gap-1">
-                  <input
-                    value={tagDraft}
-                    onChange={(e) => setTagDraft(e.target.value)}
-                    onBlur={addTag}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTag();
-                      }
-                    }}
-                    maxLength={LIMITS.tagMax}
-                    placeholder={t(lang, 'tagPlaceholder')}
-                    className="w-28 rounded-full border border-card-border bg-card px-3 py-1.5 text-sm outline-none placeholder:text-fg-faint focus:border-accent"
-                  />
+                  <span className="flex items-center gap-1 rounded-full border border-card-border bg-card pl-3 pr-1 focus-within:border-accent">
+                    <input
+                      value={tagDraft}
+                      onChange={(e) => setTagDraft(e.target.value)}
+                      onBlur={addTag}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addTag();
+                        }
+                      }}
+                      maxLength={LIMITS.tagMax}
+                      placeholder={t(lang, 'tagPlaceholder')}
+                      className="w-24 bg-transparent py-1.5 text-sm outline-none placeholder:text-fg-faint"
+                    />
+                    {tagDraft.trim() !== '' && (
+                      <button
+                        type="button"
+                        aria-label="add tag"
+                        className="flex h-6 w-6 items-center justify-center text-accent active:opacity-60"
+                        onClick={addTag}
+                      >
+                        <CheckIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </span>
                 </div>
               )}
             </div>
