@@ -115,6 +115,53 @@ export function RegistryScreen() {
 
   const selectionKey = useMemo(() => [...selectedTags].sort().join('|'), [selectedTags]);
 
+  const blurClose = (setter: (v: boolean) => void, isEmpty: boolean) => {
+    if (!isEmpty) return;
+    setTimeout(() => setter(false), 120);
+  };
+
+  const toggleSeriesSearch = () => {
+    haptic('tap');
+    if (searchOpen) {
+      setSearchOpen(false);
+      setSearchQuery('');
+      return;
+    }
+    setTagSearchOpen(false);
+    setTagQuery('');
+    setGroupSearchOpen(false);
+    setGroupQuery('');
+    setSearchOpen(true);
+  };
+
+  const toggleTagSearch = () => {
+    haptic('tap');
+    if (tagSearchOpen) {
+      setTagSearchOpen(false);
+      setTagQuery('');
+      return;
+    }
+    setSearchOpen(false);
+    setSearchQuery('');
+    setGroupSearchOpen(false);
+    setGroupQuery('');
+    setTagSearchOpen(true);
+  };
+
+  const toggleGroupSearch = () => {
+    haptic('tap');
+    if (groupSearchOpen) {
+      setGroupSearchOpen(false);
+      setGroupQuery('');
+      return;
+    }
+    setSearchOpen(false);
+    setSearchQuery('');
+    setTagSearchOpen(false);
+    setTagQuery('');
+    setGroupSearchOpen(true);
+  };
+
   const visibleTagGroups = useMemo(() => {
     const q = groupQuery.trim().toLowerCase();
     const list = q ? tagGroups.filter((gr) => gr.name.toLowerCase().includes(q)) : tagGroups;
@@ -288,13 +335,9 @@ export function RegistryScreen() {
               type="button"
               aria-label="search"
               className={searchOpen ? 'text-accent' : ''}
-              onClick={() => {
-                haptic('tap');
-                setSearchOpen((v) => !v);
-                if (searchOpen) setSearchQuery('');
-              }}
+              onClick={toggleSeriesSearch}
             >
-              <SearchIcon />
+              {searchOpen ? <XIcon /> : <SearchIcon />}
             </button>
           )}
           <button
@@ -349,8 +392,9 @@ export function RegistryScreen() {
         </div>
       </header>
 
+      {whatsNewOpen && <div className="fixed inset-0 z-40" onClick={() => setWhatsNewOpen(false)} />}
       {whatsNewOpen && changelog.length > 0 && (
-        <div className="mx-4 mb-2 max-h-56 overflow-y-auto rounded-xl bg-bg-elev p-3.5 text-xs leading-relaxed text-fg-muted shadow-lg">
+        <div className="relative z-50 mx-4 mb-2 max-h-56 overflow-y-auto rounded-xl bg-bg-elev p-3.5 text-xs leading-relaxed text-fg-muted shadow-lg">
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-accent">
             {t(lang, 'whatsNewTitle')} · {APP_VERSION}
           </p>
@@ -388,13 +432,9 @@ export function RegistryScreen() {
                 type="button"
                 aria-label="search tags"
                 className={`normal-case ${tagSearchOpen ? 'text-accent' : 'text-fg-muted'}`}
-                onClick={() => {
-                  haptic('tap');
-                  setTagSearchOpen((v) => !v);
-                  if (tagSearchOpen) setTagQuery('');
-                }}
+                onClick={toggleTagSearch}
               >
-                <SearchIcon className="h-3.5 w-3.5" />
+                {tagSearchOpen ? <XIcon className="h-3.5 w-3.5" /> : <SearchIcon className="h-3.5 w-3.5" />}
               </button>
             )}
           </p>
@@ -417,14 +457,17 @@ export function RegistryScreen() {
                     return;
                   }
                   setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag]));
+                  if (tagSearchOpen && !tagQuery.trim()) {
+                    setTagSearchOpen(false);
+                  }
                 }}
               >
                 {tag}
               </button>
             ))}
           </div>
-          {selectedTags.length > 0 && !selectionMatchesGroup && (
-            <span className="mt-2 flex items-center gap-1 self-start rounded-full border border-dashed border-accent bg-transparent pl-3 pr-1 text-xs text-accent">
+          {selectedTags.length >= 2 && !selectionMatchesGroup && (
+            <span className="mt-2 inline-flex items-center gap-1 self-start rounded-full border border-dashed border-accent bg-transparent pl-3 pr-1 text-xs text-accent">
               <input
                 value={groupDraft}
                 onChange={(e) => setGroupDraft(e.target.value)}
@@ -486,9 +529,7 @@ export function RegistryScreen() {
                 autoFocus
                 value={tagQuery}
                 onChange={(e) => setTagQuery(e.target.value)}
-                onBlur={() => {
-                  if (!tagQuery.trim()) setTagSearchOpen(false);
-                }}
+                onBlur={() => blurClose(setTagSearchOpen, !tagQuery.trim())}
                 placeholder={t(lang, 'searchPlaceholder')}
                 className="w-full rounded-xl border border-card-border bg-card py-2 pl-3.5 pr-9 text-xs outline-none placeholder:text-fg-faint focus:border-accent"
               />
@@ -515,13 +556,9 @@ export function RegistryScreen() {
               type="button"
               aria-label="search groups"
               className={`normal-case ${groupSearchOpen ? 'text-accent' : 'text-fg-muted'}`}
-              onClick={() => {
-                haptic('tap');
-                setGroupSearchOpen((v) => !v);
-                if (groupSearchOpen) setGroupQuery('');
-              }}
+              onClick={toggleGroupSearch}
             >
-              <SearchIcon className="h-3.5 w-3.5" />
+              {groupSearchOpen ? <XIcon className="h-3.5 w-3.5" /> : <SearchIcon className="h-3.5 w-3.5" />}
             </button>
           </p>
           {groupSearchOpen && (
@@ -530,9 +567,7 @@ export function RegistryScreen() {
                 autoFocus
                 value={groupQuery}
                 onChange={(e) => setGroupQuery(e.target.value)}
-                onBlur={() => {
-                  if (!groupQuery.trim()) setGroupSearchOpen(false);
-                }}
+                onBlur={() => blurClose(setGroupSearchOpen, !groupQuery.trim())}
                 placeholder={t(lang, 'groupsSearchPlaceholder')}
                 className="w-full rounded-xl border border-card-border bg-card py-2 pl-3.5 pr-9 text-xs outline-none placeholder:text-fg-faint focus:border-accent"
               />
@@ -672,9 +707,7 @@ export function RegistryScreen() {
             autoFocus
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onBlur={() => {
-              if (!searchQuery.trim()) setSearchOpen(false);
-            }}
+            onBlur={() => blurClose(setSearchOpen, !searchQuery.trim())}
             placeholder={t(lang, 'searchPlaceholder')}
             className="w-full rounded-xl border border-card-border bg-card px-4 py-2.5 pr-10 text-sm outline-none placeholder:text-fg-faint focus:border-accent"
           />
