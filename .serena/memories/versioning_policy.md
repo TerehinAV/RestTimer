@@ -4,4 +4,4 @@
 - `package.json` is the single source of truth; Vite injects it into UI and diagnostics.
 - Use beta versions in the `0.x.x` range.
 - Do not remove the `beta` label or release stable unless the user explicitly instructs it.
-- Current version: 0.2.0 beta (registry sort/search, multi-tags with tag groups + export, HelpTip, human time format, 10s undo).
+- Current version: 0.2.1 beta (header/badge redesign, whats-new chip, group edit membership, side-by-side master wheels, share group selection).

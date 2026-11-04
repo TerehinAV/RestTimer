@@ -34,8 +34,10 @@ type AppState = {
   moveGroup: (from: number, to: number) => void;
   applyImport: (groups: GroupConfig[], mode: 'merge' | 'replace', tagGroups?: TagGroup[]) => void;
   setSortMode: (mode: RegistrySort) => void;
+  touchGroup: (id: string) => void;
   saveTagGroup: (name: string, tags: string[]) => void;
   renameTagGroup: (id: string, name: string) => void;
+  updateTagGroup: (id: string, patch: { name?: string; tags?: string[] }) => void;
   deleteTagGroup: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   saveCustomPreset: (startSec: number) => void;
@@ -99,12 +101,18 @@ export const useApp = create<AppState>()(
         set({ registry: { v: 1, groups }, tagGroups: mergedGroups });
       },
       setSortMode: (mode) => set({ sortMode: mode }),
+      touchGroup: (id) => {
+        set({ registry: { v: 1, groups: get().registry.groups.map((g) => (g.id === id ? { ...g, lastUsedAt: Date.now() } : g)) } });
+      },
       saveTagGroup: (rawName, tags) => {
         const name = rawName.trim().slice(0, LIMITS.nameMax);
         if (!name || tags.length === 0) return;
         const key = name + '|' + [...tags].sort().join(',');
         const rest = get().tagGroups.filter((gr) => gr.name + '|' + [...gr.tags].sort().join(',') !== key);
         set({ tagGroups: [...rest, { id: nanoid(8), name, tags: [...tags] }].slice(-20) });
+      },
+      updateTagGroup: (id, patch) => {
+        set({ tagGroups: get().tagGroups.map((gr) => (gr.id === id ? { ...gr, ...patch } : gr)) });
       },
       renameTagGroup: (id, rawName) => {
         const name = rawName.trim().slice(0, LIMITS.nameMax);

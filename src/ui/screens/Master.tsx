@@ -209,23 +209,21 @@ export function MasterScreen() {
       )}
 
       {step === 1 && (
-        <section className="flex min-h-0 flex-1 flex-col justify-center gap-4 overflow-y-auto">
-          <div>
-            <h2 className="mb-2 text-center text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'stepCount')}</h2>
-            <div className="flex justify-center">
+        <section className="flex min-h-0 flex-1 flex-col justify-center gap-5">
+          <div className="flex items-end justify-center gap-10">
+            <div className="flex flex-col items-center">
+              <h2 className="mb-2 text-center text-[11px] uppercase leading-tight tracking-widest text-fg-muted">{t(lang, 'stepCount')}</h2>
               <Wheel className="w-28" items={countItems} value={count} onChange={setCount} />
             </div>
-          </div>
-          <div>
-            <h2 className="mb-2 text-center text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'stepInc')}</h2>
-            <div className="flex justify-center">
+            <div className="flex flex-col items-center">
+              <h2 className="mb-2 text-center text-[11px] uppercase leading-tight tracking-widest text-fg-muted">{t(lang, 'stepInc')}</h2>
               <Wheel className="w-28" items={incItems} value={incSec} onChange={setIncSec} />
             </div>
           </div>
           <div className="space-y-2">
             <p className="flex items-center justify-center gap-1.5 text-center text-xs uppercase tracking-widest text-fg-muted">
               {t(lang, 'countIncPresetsLabel')}
-              <HelpTip text={t(lang, 'countIncHelp')} />
+              <HelpTip text={t(lang, 'countIncHelp')} direction="up" />
             </p>
             {countIncPresets.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2">

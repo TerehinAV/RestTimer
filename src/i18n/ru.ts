@@ -132,6 +132,9 @@ export const ru = {
   showMore: 'ещё',
   collapse: 'свернуть',
   searchPlaceholder: 'поиск по названию',
+  sortUsage: 'Недавние',
+  whatsNewTitle: 'Что нового',
+  groupsSearchPlaceholder: 'поиск групп',
 } as const;
 
 export type Dict = { [K in keyof typeof ru]: string };

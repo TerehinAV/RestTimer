@@ -23,7 +23,15 @@ export function ShareScreen() {
 
   const chosen = useMemo(() => groups.filter((g) => selected[g.id]), [groups, selected]);
   const tagGroups = useApp((s) => s.tagGroups);
-  const payload = useMemo(() => (chosen.length > 0 ? encodeGroups(chosen, tagGroups) : ''), [chosen, tagGroups]);
+  const [chosenGroupIds, setChosenGroupIds] = useState<string[]>(() => tagGroups.map((gr) => gr.id));
+  const chosenTagGroups = useMemo(
+    () => tagGroups.filter((gr) => chosenGroupIds.includes(gr.id)),
+    [tagGroups, chosenGroupIds],
+  );
+  const payload = useMemo(
+    () => (chosen.length > 0 ? encodeGroups(chosen, chosenTagGroups) : ''),
+    [chosen, chosenTagGroups],
+  );
   const url = useMemo(() => {
     if (!payload) return '';
     const base = `${location.origin}${import.meta.env.BASE_URL}`;
@@ -117,6 +125,31 @@ export function ShareScreen() {
             </li>
           ))}
         </ul>
+
+        {tagGroups.length > 0 && chosen.length > 0 && (
+          <div className="mt-4">
+            <p className="mb-1.5 text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'tagGroupsLabel')}</p>
+            <div className="flex flex-wrap gap-2">
+              {tagGroups.map((gr) => (
+                <button
+                  key={gr.id}
+                  type="button"
+                  className={`rounded-full px-3 py-1.5 text-xs ${
+                    chosenGroupIds.includes(gr.id) ? 'bg-accent font-semibold text-black' : 'bg-card text-fg-muted'
+                  }`}
+                  onClick={() => {
+                    haptic('select');
+                    setChosenGroupIds((prev) =>
+                      prev.includes(gr.id) ? prev.filter((x) => x !== gr.id) : [...prev, gr.id],
+                    );
+                  }}
+                >
+                  {gr.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {url && (
           <div className="mt-5 flex flex-col items-center gap-3">

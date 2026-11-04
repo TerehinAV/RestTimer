@@ -16,6 +16,7 @@ export const LIMITS = {
 export type GroupConfig = {
   id: string;
   createdAt?: number;
+  lastUsedAt?: number;
   name?: string;
   startSec: number;
   count: number;
@@ -27,7 +28,7 @@ export type Registry = { v: 1; groups: GroupConfig[] };
 
 export type TagGroup = { id: string; name: string; tags: string[] };
 
-export type RegistrySort = 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'manual';
+export type RegistrySort = 'date-desc' | 'date-asc' | 'title-asc' | 'title-desc' | 'usage' | 'manual';
 
 export type TimerStatus = 'waiting' | 'running' | 'paused' | 'done';
 

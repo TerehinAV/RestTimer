@@ -133,4 +133,7 @@ export const en: Dict = {
   showMore: 'more',
   collapse: 'collapse',
   searchPlaceholder: 'search by title',
+  sortUsage: 'Recent',
+  whatsNewTitle: "What's new",
+  groupsSearchPlaceholder: 'search groups',
 };

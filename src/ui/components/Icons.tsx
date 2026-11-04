@@ -117,3 +117,16 @@ export const ChevronUpIcon = ({ className = base }: IconProps) => (
     <path d="m18 15-6-6-6 6" />
   </svg>
 );
+
+export const InfoIcon = ({ className = base }: IconProps) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  </svg>
+);
+
+export const XIcon = ({ className = base }: IconProps) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <path d="M6 6l12 12M18 6 6 18" />
+  </svg>
+);

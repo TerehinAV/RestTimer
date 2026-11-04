@@ -1,4 +1,3 @@
-
 import {
   DndContext,
   PointerSensor,
@@ -18,6 +17,7 @@ import { startRun, focusRun, getEngine } from '../../boot';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
 import {
+  CheckIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   GearIcon,
@@ -30,8 +30,12 @@ import {
   SortIcon,
   SpeakerIcon,
   TrashIcon,
+  XIcon,
 } from '../components/Icons';
 import { APP_VERSION } from '../../diagnostics/diagnostics';
+import { currentChangelog, changelogSeen, markChangelogSeen } from '../../diagnostics/changelog';
+
+const TAG_ROW_PX = 36;
 
 export function RegistryScreen() {
   const groups = useApp((s) => s.registry.groups);
@@ -39,8 +43,10 @@ export function RegistryScreen() {
   const lang = useApp((s) => s.lang);
   const setScreen = useApp((s) => s.setScreen);
   const moveGroup = useApp((s) => s.moveGroup);
+  const touchGroup = useApp((s) => s.touchGroup);
 
   const [deleted, setDeleted] = useState<{ group: GroupConfig; index: number } | null>(null);
+  const [undoCountdown, setUndoCountdown] = useState(10);
   const focusedRunId = useApp((s) => s.focusedRunId);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -48,24 +54,39 @@ export function RegistryScreen() {
   const setSortMode = useApp((s) => s.setSortMode);
   const tagGroups = useApp((s) => s.tagGroups);
   const saveTagGroup = useApp((s) => s.saveTagGroup);
-  const renameTagGroup = useApp((s) => s.renameTagGroup);
+  const updateTagGroup = useApp((s) => s.updateTagGroup);
   const deleteTagGroup = useApp((s) => s.deleteTagGroup);
 
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortOpen, setSortOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [tagRowsMax, setTagRowsMax] = useState(3);
+  const [tagRowsMax, setTagRowsMax] = useState(1);
   const [tagCanExpand, setTagCanExpand] = useState(false);
+  const [tagSearchOpen, setTagSearchOpen] = useState(false);
+  const [tagQuery, setTagQuery] = useState('');
+  const [groupRowsMax, setGroupRowsMax] = useState(1);
+  const [groupCanExpand, setGroupCanExpand] = useState(false);
+  const [groupSearchOpen, setGroupSearchOpen] = useState(false);
+  const [groupQuery, setGroupQuery] = useState('');
   const [groupDraft, setGroupDraft] = useState('');
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingGroupTags, setEditingGroupTags] = useState<string[]>([]);
   const [groupRenameDraft, setGroupRenameDraft] = useState('');
   const [listOverflows, setListOverflows] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [seenChangelog, setSeenChangelog] = useState(true);
   const listRef = useRef<HTMLDivElement>(null);
   const tagBlockRef = useRef<HTMLDivElement>(null);
-  const TAG_ROW_PX = 36;
+  const groupBlockRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setSeenChangelog(changelogSeen()), []);
 
   const allTags = useMemo(() => [...new Set(groups.flatMap((g) => g.tags ?? []))], [groups]);
+  const visibleTagList = useMemo(() => {
+    const q = tagQuery.trim().toLowerCase();
+    return q ? allTags.filter((tag) => tag.toLowerCase().includes(q)) : allTags;
+  }, [allTags, tagQuery]);
 
   const visibleGroups = useMemo(() => {
     let list = groups;
@@ -81,8 +102,14 @@ export function RegistryScreen() {
     else if (sortMode === 'date-asc') sorted.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
     else if (sortMode === 'title-asc') sorted.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', lang));
     else if (sortMode === 'title-desc') sorted.sort((a, b) => (b.name ?? '').localeCompare(a.name ?? '', lang));
+    else if (sortMode === 'usage') sorted.sort((a, b) => (b.lastUsedAt ?? b.createdAt ?? 0) - (a.lastUsedAt ?? a.createdAt ?? 0));
     return sorted;
   }, [groups, selectedTags, searchQuery, sortMode, lang]);
+
+  const visibleTagGroups = useMemo(() => {
+    const q = groupQuery.trim().toLowerCase();
+    return q ? tagGroups.filter((gr) => gr.name.toLowerCase().includes(q)) : tagGroups;
+  }, [tagGroups, groupQuery]);
 
   useEffect(() => {
     const el = tagBlockRef.current;
@@ -92,7 +119,17 @@ export function RegistryScreen() {
     const ro = new ResizeObserver(check);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [allTags.length, tagRowsMax]);
+  }, [visibleTagList.length, tagRowsMax]);
+
+  useEffect(() => {
+    const el = groupBlockRef.current;
+    if (!el) return;
+    const check = () => setGroupCanExpand(el.scrollHeight > groupRowsMax * TAG_ROW_PX + 4);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [visibleTagGroups.length, groupRowsMax, editingGroupId]);
 
   useEffect(() => {
     const el = listRef.current;
@@ -104,6 +141,13 @@ export function RegistryScreen() {
     return () => ro.disconnect();
   }, [visibleGroups.length]);
 
+  useEffect(() => {
+    if (!deleted) return;
+    setUndoCountdown(10);
+    const iv = setInterval(() => setUndoCountdown((v) => Math.max(0, v - 1)), 1000);
+    return () => clearInterval(iv);
+  }, [deleted]);
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { delay: 260, tolerance: 8 } }));
 
   useEffect(() => {
@@ -112,8 +156,8 @@ export function RegistryScreen() {
     }
   }, []);
 
-
   const onCardTap = (group: GroupConfig) => {
+    touchGroup(group.id);
     const active = runs.find((r) => r.configId === group.id && r.runStatus === 'active' && r.actualMs > 0);
     if (active) {
       focusRun(active.runId);
@@ -131,9 +175,14 @@ export function RegistryScreen() {
     useApp.getState().removeGroup(group.id);
     haptic('warn');
     setDeleted({ group, index });
-    if (undoTimer.current) clearTimeout(undoTimer.current);
-    undoTimer.current = setTimeout(() => setDeleted(null), 10_000);
   };
+
+  useEffect(() => {
+    if (deleted) {
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+      undoTimer.current = setTimeout(() => setDeleted(null), 10_000);
+    }
+  }, [deleted]);
 
   const undo = () => {
     if (!deleted) return;
@@ -156,16 +205,43 @@ export function RegistryScreen() {
     haptic('tap');
   };
 
+  const applyGroup = (tags: string[]) => {
+    haptic('select');
+    setSelectedTags((prev) => {
+      const allSelected = tags.every((tag) => prev.includes(tag));
+      if (allSelected) return prev.filter((tag) => !tags.includes(tag));
+      return [...new Set([...prev, ...tags])];
+    });
+  };
+
+  const changelog = currentChangelog(lang);
+
   return (
     <main className="flex h-full flex-col bg-bg">
-      <header className="flex items-center justify-between px-4 pb-2 pt-5">
+      <header className="flex items-center justify-between gap-2 px-4 pb-2 pt-5">
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate text-2xl font-bold">{t(lang, 'registryTitle')}</h1>
-          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
-            beta {APP_VERSION}
-          </span>
+          <h1 className="truncate text-xl font-bold">{t(lang, 'registryTitle')}</h1>
+          <button
+            type="button"
+            aria-label="what's new"
+            className="relative flex shrink-0 flex-col items-center justify-center rounded-lg bg-accent-soft px-1.5 py-0.5 text-center leading-none active:opacity-70"
+            onClick={() => {
+              setWhatsNewOpen((v) => !v);
+              if (!seenChangelog) {
+                markChangelogSeen();
+                setSeenChangelog(true);
+              }
+              haptic('tap');
+            }}
+          >
+            <span className="text-[10px] font-semibold text-accent">{APP_VERSION}</span>
+            <span className="mt-px text-[7px] font-bold uppercase tracking-widest text-accent/50">beta</span>
+            {!seenChangelog && (
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 animate-pulse rounded-full bg-warn" />
+            )}
+          </button>
         </div>
-        <div className="relative flex shrink-0 items-center gap-4 text-fg-muted">
+        <div className="relative flex shrink-0 items-center gap-2.5 text-fg-muted">
           {listOverflows && (
             <button
               type="button"
@@ -196,6 +272,7 @@ export function RegistryScreen() {
               {(
                 [
                   ['date-desc', t(lang, 'sortDateDesc')],
+                  ['usage', t(lang, 'sortUsage')],
                   ['date-asc', t(lang, 'sortDateAsc')],
                   ['title-asc', t(lang, 'sortTitleAsc')],
                   ['title-desc', t(lang, 'sortTitleDesc')],
@@ -231,6 +308,23 @@ export function RegistryScreen() {
         </div>
       </header>
 
+      {whatsNewOpen && changelog.length > 0 && (
+        <div className="mx-4 mb-2 rounded-xl bg-bg-elev p-3.5 text-xs leading-relaxed text-fg-muted shadow-lg">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-accent">
+            {t(lang, 'whatsNewTitle')} · {APP_VERSION}
+          </p>
+          <ul className="space-y-2">
+            {changelog.map((note) => (
+              <li key={note.where + note.what}>
+                <span className="font-semibold text-fg">{note.where}: </span>
+                {note.what}
+                <span className="block text-fg-faint">{note.try}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {allTags.length > 0 && (
         <div className="px-4 pb-2">
           <div
@@ -238,7 +332,7 @@ export function RegistryScreen() {
             className="flex flex-wrap gap-2 overflow-hidden transition-[max-height]"
             style={{ maxHeight: `${tagRowsMax * TAG_ROW_PX}px` }}
           >
-            {allTags.map((tag) => (
+            {visibleTagList.map((tag) => (
               <button
                 key={tag}
                 type="button"
@@ -254,34 +348,66 @@ export function RegistryScreen() {
               </button>
             ))}
           </div>
-          {(tagCanExpand || tagRowsMax > 3) && (
-            <div className="mt-1.5 flex items-center justify-center gap-4">
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
               {tagCanExpand && (
                 <button
                   type="button"
                   className="flex items-center gap-1 text-xs text-fg-muted active:opacity-60"
                   onClick={() => {
                     haptic('tap');
-                    setTagRowsMax((v) => v + 5);
+                    setTagRowsMax((v) => (v === 1 ? 3 : v + 3));
                   }}
                 >
                   {t(lang, 'showMore')}
                   <ChevronDownIcon className="h-3.5 w-3.5" />
                 </button>
               )}
-              {tagRowsMax > 3 && (
+              {tagRowsMax > 1 && (
                 <button
                   type="button"
                   className="flex items-center gap-1 text-xs text-fg-muted active:opacity-60"
                   onClick={() => {
                     haptic('tap');
-                    setTagRowsMax(3);
+                    setTagRowsMax(1);
                   }}
                 >
                   {t(lang, 'collapse')}
                   <ChevronUpIcon className="h-3.5 w-3.5" />
                 </button>
               )}
+            </div>
+            {(tagCanExpand || tagRowsMax > 1) && (
+              <button
+                type="button"
+                aria-label="search tags"
+                className={`text-fg-muted active:opacity-60 ${tagSearchOpen ? 'text-accent' : ''}`}
+                onClick={() => {
+                  haptic('tap');
+                  setTagSearchOpen((v) => !v);
+                  if (tagSearchOpen) setTagQuery('');
+                }}
+              >
+                <SearchIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {tagSearchOpen && (
+            <div className="relative mt-1.5">
+              <input
+                value={tagQuery}
+                onChange={(e) => setTagQuery(e.target.value)}
+                placeholder={t(lang, 'searchPlaceholder')}
+                className="w-full rounded-xl border border-card-border bg-card py-2 pl-3.5 pr-9 text-xs outline-none placeholder:text-fg-faint focus:border-accent"
+              />
+              <button
+                type="button"
+                aria-label="clear"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-fg-faint active:opacity-60"
+                onClick={() => setTagQuery('')}
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
             </div>
           )}
         </div>
@@ -315,7 +441,7 @@ export function RegistryScreen() {
             />
             <button
               type="button"
-              className="rounded-full bg-accent-soft px-3 py-1.5 text-xs text-accent active:opacity-70"
+              className="rounded-full border border-accent px-3 py-1.5 text-xs font-medium text-accent active:opacity-70"
               onClick={() => {
                 saveTagGroup(groupDraft, selectedTags);
                 setGroupDraft('');
@@ -328,77 +454,184 @@ export function RegistryScreen() {
         </div>
       )}
 
-      {tagGroups.length > 0 && (
+      {visibleTagGroups.length > 0 && (
         <div className="px-4 pb-2">
           <p className="mb-1.5 text-[10px] uppercase tracking-widest text-fg-faint">{t(lang, 'tagGroupsLabel')}</p>
-          <div className="flex flex-wrap gap-2">
-            {tagGroups.map((group) => (
-              <span key={group.id} className="flex items-center gap-1 rounded-full bg-card px-3 py-1.5 text-xs text-fg-muted">
-                {editingGroupId === group.id ? (
-                  <input
-                    autoFocus
-                    value={groupRenameDraft}
-                    maxLength={20}
-                    className="w-20 bg-transparent text-xs outline-none"
-                    onChange={(e) => setGroupRenameDraft(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') e.currentTarget.blur();
-                      if (e.key === 'Escape') setEditingGroupId(null);
-                    }}
-                    onBlur={() => {
-                      renameTagGroup(group.id, groupRenameDraft);
-                      setEditingGroupId(null);
-                    }}
-                  />
-                ) : (
+          <div
+            ref={groupBlockRef}
+            className="flex flex-wrap gap-2 overflow-hidden transition-[max-height]"
+            style={{ maxHeight: `${groupRowsMax * TAG_ROW_PX}px` }}
+          >
+            {visibleTagGroups.map((group) => {
+              const isActive = group.tags.every((tag) => selectedTags.includes(tag));
+              const editing = editingGroupId === group.id;
+              return (
+                <span
+                  key={group.id}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs ${
+                    isActive ? 'bg-accent-soft text-accent' : 'bg-card text-fg-muted'
+                  }`}
+                >
+                  {editing ? (
+                    <input
+                      autoFocus
+                      value={groupRenameDraft}
+                      maxLength={20}
+                      className="w-20 bg-transparent text-xs outline-none"
+                      onChange={(e) => setGroupRenameDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                        if (e.key === 'Escape') setEditingGroupId(null);
+                      }}
+                      onBlur={() => {
+                        updateTagGroup(group.id, { name: groupRenameDraft, tags: editingGroupTags });
+                        setEditingGroupId(null);
+                      }}
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      className="font-medium active:opacity-70"
+                      onClick={() => applyGroup(group.tags)}
+                    >
+                      {group.name}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    className="font-medium active:opacity-70"
+                    aria-label={editing ? 'save group' : 'edit group'}
+                    className="flex h-7 w-7 items-center justify-center text-fg-muted active:opacity-60"
                     onClick={() => {
-                      haptic('select');
-                      setSelectedTags(group.tags);
+                      if (editing) {
+                        updateTagGroup(group.id, { name: groupRenameDraft, tags: editingGroupTags });
+                        setEditingGroupId(null);
+                        haptic('notify');
+                      } else {
+                        setEditingGroupId(group.id);
+                        setGroupRenameDraft(group.name);
+                        setEditingGroupTags([...group.tags]);
+                        haptic('select');
+                      }
                     }}
                   >
-                    {group.name}
+                    {editing ? <CheckIcon className="h-4 w-4 text-go" /> : <PencilIcon className="h-3.5 w-3.5" />}
                   </button>
-                )}
-                <button
-                  type="button"
-                  aria-label="rename group"
-                  className="p-0.5 text-fg-muted active:opacity-60"
-                  onClick={() => {
-                    setEditingGroupId(group.id);
-                    setGroupRenameDraft(group.name);
-                  }}
-                >
-                  <PencilIcon className="h-3 w-3" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="delete group"
-                  className="p-0.5 text-warn active:opacity-60"
-                  onClick={() => {
-                    deleteTagGroup(group.id);
-                    haptic('warn');
-                  }}
-                >
-                  <TrashIcon className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
+                  <button
+                    type="button"
+                    aria-label="delete group"
+                    className="flex h-7 w-7 items-center justify-center text-fg-faint active:opacity-60"
+                    onClick={() => {
+                      deleteTagGroup(group.id);
+                      haptic('warn');
+                    }}
+                  >
+                    <TrashIcon className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              );
+            })}
           </div>
+          {editingGroupId && (
+            <div className="mt-2 flex flex-wrap gap-1.5 rounded-xl bg-card/60 p-2.5">
+              {allTags.map((tag) => {
+                const on = editingGroupTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    className={`rounded-full px-2.5 py-1 text-[11px] ${on ? 'bg-accent text-black' : 'bg-card text-fg-faint'}`}
+                    onClick={() =>
+                      setEditingGroupTags((prev) => (on ? prev.filter((x) => x !== tag) : [...prev, tag]))
+                    }
+                  >
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-1 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              {groupCanExpand && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs text-fg-muted active:opacity-60"
+                  onClick={() => {
+                    haptic('tap');
+                    setGroupRowsMax((v) => v + 3);
+                  }}
+                >
+                  {t(lang, 'showMore')}
+                  <ChevronDownIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {groupRowsMax > 1 && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs text-fg-muted active:opacity-60"
+                  onClick={() => {
+                    haptic('tap');
+                    setGroupRowsMax(1);
+                  }}
+                >
+                  {t(lang, 'collapse')}
+                  <ChevronUpIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            {(groupCanExpand || groupRowsMax > 1) && (
+              <button
+                type="button"
+                aria-label="search groups"
+                className={`text-fg-muted active:opacity-60 ${groupSearchOpen ? 'text-accent' : ''}`}
+                onClick={() => {
+                  haptic('tap');
+                  setGroupSearchOpen((v) => !v);
+                  if (groupSearchOpen) setGroupQuery('');
+                }}
+              >
+                <SearchIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {groupSearchOpen && (
+            <div className="relative mt-1.5">
+              <input
+                value={groupQuery}
+                onChange={(e) => setGroupQuery(e.target.value)}
+                placeholder={t(lang, 'groupsSearchPlaceholder')}
+                className="w-full rounded-xl border border-card-border bg-card py-2 pl-3.5 pr-9 text-xs outline-none placeholder:text-fg-faint focus:border-accent"
+              />
+              <button
+                type="button"
+                aria-label="clear"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-fg-faint active:opacity-60"
+                onClick={() => setGroupQuery('')}
+              >
+                <XIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
       {searchOpen && (
-        <div className="px-4 pb-2">
+        <div className="relative px-4 pb-2">
           <input
             autoFocus
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t(lang, 'searchPlaceholder')}
-            className="w-full rounded-xl border border-card-border bg-card px-4 py-2.5 text-sm outline-none placeholder:text-fg-faint focus:border-accent"
+            className="w-full rounded-xl border border-card-border bg-card px-4 py-2.5 pr-10 text-sm outline-none placeholder:text-fg-faint focus:border-accent"
           />
+          <button
+            type="button"
+            aria-label="clear"
+            className="absolute right-6 top-1/2 -translate-y-1/2 p-1 text-fg-faint active:opacity-60"
+            onClick={() => setSearchQuery('')}
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -455,7 +688,9 @@ export function RegistryScreen() {
             exit={{ y: 60, opacity: 0 }}
             className="absolute inset-x-4 bottom-24 z-30 flex items-center justify-between rounded-xl bg-bg-elev px-4 py-3 shadow-lg"
           >
-            <span className="text-sm">{t(lang, 'deleted')}</span>
+            <span className="text-sm">
+              {t(lang, 'deleted')} · {undoCountdown}с
+            </span>
             <button type="button" className="text-sm font-semibold text-accent" onClick={undo}>
               {t(lang, 'undo')}
             </button>
