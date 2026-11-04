@@ -22,7 +22,8 @@ export function ShareScreen() {
   );
 
   const chosen = useMemo(() => groups.filter((g) => selected[g.id]), [groups, selected]);
-  const payload = useMemo(() => (chosen.length > 0 ? encodeGroups(chosen) : ''), [chosen]);
+  const tagGroups = useApp((s) => s.tagGroups);
+  const payload = useMemo(() => (chosen.length > 0 ? encodeGroups(chosen, tagGroups) : ''), [chosen, tagGroups]);
   const url = useMemo(() => {
     if (!payload) return '';
     const base = `${location.origin}${import.meta.env.BASE_URL}`;
@@ -161,7 +162,7 @@ export function ShareScreen() {
 function maxExportableCount(groups: GroupConfig[]): number {
   for (let i = groups.length; i >= 0; i -= 1) {
     if (i === 0) return 0;
-    if (encodeGroups(groups.slice(0, i)).length <= QR_BUDGET) return i;
+    if (encodeGroups(groups.slice(0, i), useApp.getState().tagGroups).length <= QR_BUDGET) return i;
   }
   return 0;
 }

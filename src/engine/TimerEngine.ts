@@ -1,7 +1,6 @@
 import { nanoid } from 'nanoid';
 import { timerDurMs } from '../core/time';
 import type { GroupConfig, RunSnapshot, TimerStatus, VoiceKey } from '../core/types';
-import { LIMITS } from '../core/types';
 
 export type CueKey = Extract<VoiceKey, `n${number}`>;
 
@@ -83,7 +82,7 @@ export class TimerEngine {
     const now = this.now();
     this.runs.set(runId, {
       runId,
-      config,
+      config: { ...config },
       label: config.name ?? '',
       timers: Array.from({ length: config.count }, (_, i) => {
         const durMs = timerDurMs(config, i);
@@ -192,14 +191,21 @@ export class TimerEngine {
     this.emitSnapshot();
   }
 
-  bumpNext(runId = this.focusedRunId, deltaSec = 5): void {
+  canAdjustInc(deltaSec: number, runId = this.focusedRunId): boolean {
     const run = runId ? this.runs.get(runId) : undefined;
-    if (!run || run.finishedAt !== null) return;
-    const deltaMs = deltaSec * 1000;
+    if (!run || run.finishedAt !== null) return false;
+    const newInc = run.config.incSec + deltaSec;
+    return newInc >= 0 && newInc <= run.config.startSec;
+  }
+
+  adjustInc(deltaSec: number, runId = this.focusedRunId): void {
+    if (!this.canAdjustInc(deltaSec, runId)) return;
+    const run = this.runs.get(runId!)!;
+    run.config.incSec += deltaSec;
     for (let i = run.current; i < run.timers.length; i += 1) {
       const t = run.timers[i];
       if (t.status !== 'waiting') continue;
-      t.durMs = Math.min(t.durMs + deltaMs, LIMITS.startSecMax * 1000);
+      t.durMs = (run.config.startSec + i * run.config.incSec) * 1000;
       t.remainMs = t.durMs;
     }
     this.emitSnapshot();
@@ -349,6 +355,7 @@ export class TimerEngine {
       })),
       current: Math.min(run.current, run.timers.length - 1),
       plannedMs: run.timers.reduce((acc, t) => acc + t.durMs, 0),
+      incSec: run.config.incSec,
       actualMs,
       overrunMs:
         run.overrunStartedAt === null ? 0 : Math.min(now - run.overrunStartedAt, run.overrunLimitMs),

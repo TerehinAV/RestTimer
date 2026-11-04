@@ -1,13 +1,14 @@
 import { useMemo, useRef, useState } from 'react';
 import type { TouchEvent } from 'react';
 import { nanoid } from 'nanoid';
-import { fmtMs, plannedMs } from '../../core/time';
+import { fmtMsHuman, fmtSecHuman, plannedMs } from '../../core/time';
 import { LIMITS } from '../../core/types';
 import type { GroupConfig } from '../../core/types';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
 import { Wheel } from '../components/Wheel';
+import { HelpTip } from '../components/HelpTip';
 import type { WheelItem } from '../components/Wheel';
 
 const minuteItems: WheelItem[] = Array.from({ length: 31 }, (_, m) => ({ value: m * 60, label: String(m) }));
@@ -41,6 +42,7 @@ export function MasterScreen() {
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [tagDraft, setTagDraft] = useState('');
   const savedRef = useRef(false);
+  const [nameFocused, setNameFocused] = useState(false);
 
   const standardPresets = [30, 45, 60, 90, 120, 180];
   const customMatch = customPresets.find((p) => p.startSec === startSec);
@@ -109,6 +111,7 @@ export function MasterScreen() {
     savedRef.current = true;
     const final: GroupConfig = {
       id: existing?.id ?? nanoid(8),
+      createdAt: existing?.createdAt ?? Date.now(),
       name: name.trim() === '' ? undefined : name.trim().slice(0, LIMITS.nameMax),
       startSec: Math.max(LIMITS.startSecMin, startSec),
       count,
@@ -127,16 +130,16 @@ export function MasterScreen() {
       onTouchStart={onSwipeStart}
       onTouchEnd={onSwipeEnd}
     >
-      <header className="mb-2 flex items-center justify-between">
+      <header className="mb-2 grid grid-cols-[4rem_1fr_auto] items-center">
         <button
           type="button"
-          className="min-w-16 text-left text-fg-muted"
+          className="text-left text-fg-muted"
           onClick={() => (step === 0 ? setScreen({ name: 'registry' }) : setStep(step - 1))}
         >
           {step === 0 ? t(lang, 'cancel') : '‹'}
         </button>
-        <h1 className="text-base font-semibold">{t(lang, existing ? 'masterTitleEdit' : 'masterTitleNew')}</h1>
-        <div className="flex gap-1.5">
+        <h1 className="text-center text-base font-semibold">{t(lang, existing ? 'masterTitleEdit' : 'masterTitleNew')}</h1>
+        <div className="flex justify-end gap-1.5">
           {[0, 1, 2].map((i) => (
             <span key={i} className={`h-1.5 w-1.5 rounded-full ${i <= step ? 'bg-accent' : 'bg-fg-faint'}`} />
           ))}
@@ -220,8 +223,9 @@ export function MasterScreen() {
             </div>
           </div>
           <div className="space-y-2">
-            <p className="text-center text-xs uppercase tracking-widest text-fg-muted">
+            <p className="flex items-center justify-center gap-1.5 text-center text-xs uppercase tracking-widest text-fg-muted">
               {t(lang, 'countIncPresetsLabel')}
+              <HelpTip text={t(lang, 'countIncHelp')} />
             </p>
             {countIncPresets.length > 0 && (
               <div className="flex flex-wrap justify-center gap-2">
@@ -252,7 +256,7 @@ export function MasterScreen() {
                   haptic('warn');
                 }}
               >
-                {t(lang, 'deletePreset')}
+                {t(lang, 'deleteTemplate')}
               </button>
             ) : (
               <button
@@ -263,7 +267,7 @@ export function MasterScreen() {
                   haptic('notify');
                 }}
               >
-                {t(lang, 'savePreset')}
+                {t(lang, 'saveTemplate')}
               </button>
             )}
           </div>
@@ -271,7 +275,7 @@ export function MasterScreen() {
       )}
 
       {step === 2 && (
-        <section className="flex min-h-0 flex-1 flex-col justify-center gap-6">
+        <section className="flex min-h-0 flex-1 flex-col justify-center gap-6 overflow-y-auto">
           <div>
             <h2 className="mb-2 text-xs uppercase tracking-widest text-fg-muted">
               {t(lang, 'stepName')} <span className="normal-case tracking-normal text-fg-faint">({t(lang, 'stepNameHint')})</span>
@@ -279,6 +283,8 @@ export function MasterScreen() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onFocus={() => setNameFocused(true)}
+              onBlur={() => setNameFocused(false)}
               maxLength={LIMITS.nameMax}
               placeholder={t(lang, 'namePlaceholder')}
               className="w-full rounded-xl border border-card-border bg-card px-4 py-3 text-base outline-none placeholder:text-fg-faint focus:border-accent"
@@ -319,7 +325,7 @@ export function MasterScreen() {
                 </div>
               )}
             </div>
-            {allTags.length > 0 && (
+            {allTags.length > 0 && !nameFocused && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {allTags
                   .filter((tag) => !tags.includes(tag))
@@ -341,12 +347,12 @@ export function MasterScreen() {
               </div>
             )}
           </div>
-          <div className="rounded-2xl bg-card p-4 text-center">
-            <p className="text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'previewSum')}</p>
-            <p className="font-mono-timer text-4xl tabular-nums">{fmtMs(sum)}</p>
+          <div className={`rounded-2xl bg-card p-4 text-center ${nameFocused ? 'hidden' : ''}`}>
+            <p className="text-xs uppercase tracking-widest text-fg-muted">{t(lang, 'previewSumLabel')}</p>
+            <p className="font-mono-timer text-4xl tabular-nums">{fmtMsHuman(sum)}</p>
             <p className="mt-1 text-sm text-fg-muted">
-              {startSec}×{count}
-              {incSec > 0 ? ` (+${incSec})` : ''}
+              {fmtSecHuman(startSec)} × {count}
+              {incSec > 0 ? ` (+${fmtSecHuman(incSec)})` : ''}
             </p>
           </div>
         </section>

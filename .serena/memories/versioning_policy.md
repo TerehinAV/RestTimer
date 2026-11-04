@@ -4,4 +4,4 @@
 - `package.json` is the single source of truth; Vite injects it into UI and diagnostics.
 - Use beta versions in the `0.x.x` range.
 - Do not remove the `beta` label or release stable unless the user explicitly instructs it.
-- Current version: 0.1.26 beta (removed persistent WebAudio AudioContext; WAV beeps share the HTMLAudio channel).
+- Current version: 0.2.0 beta (registry sort/search, multi-tags with tag groups + export, HelpTip, human time format, 10s undo).

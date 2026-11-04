@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { nanoid } from 'nanoid';
-import type { CountIncPreset, CustomPreset, GroupConfig, Lang, Registry, RunSnapshot, Settings } from '../core/types';
+import type { CountIncPreset, CustomPreset, GroupConfig, Lang, Registry, RegistrySort, RunSnapshot, Settings, TagGroup } from '../core/types';
 import { LIMITS } from '../core/types';
 
 export type Screen =
@@ -10,7 +10,7 @@ export type Screen =
   | { name: 'run' }
   | { name: 'summary'; runId: string }
   | { name: 'share' }
-  | { name: 'importPreview'; groups: GroupConfig[] }
+  | { name: 'importPreview'; groups: GroupConfig[]; tagGroups: TagGroup[] }
   | { name: 'settings' };
 
 type LastMaster = { count: number; incSec: number };
@@ -19,6 +19,8 @@ type AppState = {
   registry: Registry;
   customPresets: CustomPreset[];
   countIncPresets: CountIncPreset[];
+  tagGroups: TagGroup[];
+  sortMode: RegistrySort;
   lastMaster: LastMaster;
   settings: Settings;
   screen: Screen;
@@ -30,7 +32,11 @@ type AppState = {
   saveGroup: (group: GroupConfig) => void;
   removeGroup: (id: string) => void;
   moveGroup: (from: number, to: number) => void;
-  applyImport: (groups: GroupConfig[], mode: 'merge' | 'replace') => void;
+  applyImport: (groups: GroupConfig[], mode: 'merge' | 'replace', tagGroups?: TagGroup[]) => void;
+  setSortMode: (mode: RegistrySort) => void;
+  saveTagGroup: (name: string, tags: string[]) => void;
+  renameTagGroup: (id: string, name: string) => void;
+  deleteTagGroup: (id: string) => void;
   updateSettings: (patch: Partial<Settings>) => void;
   saveCustomPreset: (startSec: number) => void;
   removeCustomPreset: (id: string) => void;
@@ -49,6 +55,8 @@ export const useApp = create<AppState>()(
       registry: emptyRegistry,
       customPresets: [],
       countIncPresets: [],
+      tagGroups: [],
+      sortMode: 'date-desc',
       lastMaster: { count: 5, incSec: 0 },
       settings: { themeMode: 'auto', langMode: 'auto', voiceOn: true, beepsOn: false, mediaKeepAlive: true, voiceInSilentMode: true },
       screen: { name: 'registry' },
@@ -74,13 +82,37 @@ export const useApp = create<AppState>()(
         groups.splice(to, 0, moved);
         set({ registry: { v: 1, groups } });
       },
-      applyImport: (incoming, mode) => {
+      applyImport: (incoming, mode, tagGroups) => {
         if (mode === 'replace') {
-          set({ registry: { v: 1, groups: incoming } });
+          set({ registry: { v: 1, groups: incoming }, tagGroups: tagGroups ?? [] });
           return;
         }
         const groups = [...get().registry.groups, ...incoming];
-        set({ registry: { v: 1, groups } });
+        const existingKeys = new Set(get().tagGroups.map((gr) => gr.name + '|' + [...gr.tags].sort().join(',')));
+        const mergedGroups = [...get().tagGroups];
+        for (const group of tagGroups ?? []) {
+          const key = group.name + '|' + [...group.tags].sort().join(',');
+          if (existingKeys.has(key)) continue;
+          existingKeys.add(key);
+          mergedGroups.push(group);
+        }
+        set({ registry: { v: 1, groups }, tagGroups: mergedGroups });
+      },
+      setSortMode: (mode) => set({ sortMode: mode }),
+      saveTagGroup: (rawName, tags) => {
+        const name = rawName.trim().slice(0, LIMITS.nameMax);
+        if (!name || tags.length === 0) return;
+        const key = name + '|' + [...tags].sort().join(',');
+        const rest = get().tagGroups.filter((gr) => gr.name + '|' + [...gr.tags].sort().join(',') !== key);
+        set({ tagGroups: [...rest, { id: nanoid(8), name, tags: [...tags] }].slice(-20) });
+      },
+      renameTagGroup: (id, rawName) => {
+        const name = rawName.trim().slice(0, LIMITS.nameMax);
+        if (!name) return;
+        set({ tagGroups: get().tagGroups.map((gr) => (gr.id === id ? { ...gr, name } : gr)) });
+      },
+      deleteTagGroup: (id) => {
+        set({ tagGroups: get().tagGroups.filter((gr) => gr.id !== id) });
       },
       updateSettings: (patch) => set({ settings: { ...get().settings, ...patch } }),
       saveCustomPreset: (startSec) => {
@@ -125,6 +157,8 @@ export const useApp = create<AppState>()(
         registry: s.registry,
         customPresets: s.customPresets,
         countIncPresets: s.countIncPresets,
+        tagGroups: s.tagGroups,
+        sortMode: s.sortMode,
         settings: s.settings,
         lastMaster: s.lastMaster,
       }),

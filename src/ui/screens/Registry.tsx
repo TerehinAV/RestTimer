@@ -11,13 +11,26 @@ import { SortableContext, arrayMove, verticalListSortingStrategy, useSortable } 
 import { CSS } from '@dnd-kit/utilities';
 import { AnimatePresence, motion } from 'motion/react';
 import { fmtMs, plannedMs } from '../../core/time';
-import type { GroupConfig } from '../../core/types';
+import type { GroupConfig, RegistrySort } from '../../core/types';
 import { t } from '../../i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { startRun, focusRun, getEngine } from '../../boot';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
-import { GearIcon, PauseIcon, PencilIcon, PlusIcon, QrIcon, ShareIcon, SpeakerIcon, TrashIcon } from '../components/Icons';
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  GearIcon,
+  PauseIcon,
+  PencilIcon,
+  PlusIcon,
+  QrIcon,
+  SearchIcon,
+  ShareIcon,
+  SortIcon,
+  SpeakerIcon,
+  TrashIcon,
+} from '../components/Icons';
 import { APP_VERSION } from '../../diagnostics/diagnostics';
 
 export function RegistryScreen() {
@@ -28,15 +41,68 @@ export function RegistryScreen() {
   const moveGroup = useApp((s) => s.moveGroup);
 
   const [deleted, setDeleted] = useState<{ group: GroupConfig; index: number } | null>(null);
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const focusedRunId = useApp((s) => s.focusedRunId);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const sortMode = useApp((s) => s.sortMode);
+  const setSortMode = useApp((s) => s.setSortMode);
+  const tagGroups = useApp((s) => s.tagGroups);
+  const saveTagGroup = useApp((s) => s.saveTagGroup);
+  const renameTagGroup = useApp((s) => s.renameTagGroup);
+  const deleteTagGroup = useApp((s) => s.deleteTagGroup);
+
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [tagRowsMax, setTagRowsMax] = useState(3);
+  const [tagCanExpand, setTagCanExpand] = useState(false);
+  const [groupDraft, setGroupDraft] = useState('');
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [groupRenameDraft, setGroupRenameDraft] = useState('');
+  const [listOverflows, setListOverflows] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+  const tagBlockRef = useRef<HTMLDivElement>(null);
+  const TAG_ROW_PX = 36;
+
   const allTags = useMemo(() => [...new Set(groups.flatMap((g) => g.tags ?? []))], [groups]);
-  const visibleGroups = useMemo(
-    () => (tagFilter ? groups.filter((g) => g.tags?.includes(tagFilter)) : groups),
-    [groups, tagFilter],
-  );
+
+  const visibleGroups = useMemo(() => {
+    let list = groups;
+    if (selectedTags.length > 0) {
+      list = list.filter((g) => selectedTags.every((tag) => g.tags?.includes(tag)));
+    }
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      list = list.filter((g) => (g.name ?? `#${g.startSec}s`).toLowerCase().includes(query));
+    }
+    const sorted = [...list];
+    if (sortMode === 'date-desc') sorted.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    else if (sortMode === 'date-asc') sorted.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0));
+    else if (sortMode === 'title-asc') sorted.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', lang));
+    else if (sortMode === 'title-desc') sorted.sort((a, b) => (b.name ?? '').localeCompare(a.name ?? '', lang));
+    return sorted;
+  }, [groups, selectedTags, searchQuery, sortMode, lang]);
+
+  useEffect(() => {
+    const el = tagBlockRef.current;
+    if (!el) return;
+    const check = () => setTagCanExpand(el.scrollHeight > tagRowsMax * TAG_ROW_PX + 4);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [allTags.length, tagRowsMax]);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const check = () => setListOverflows(el.scrollHeight > el.clientHeight + 8);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [visibleGroups.length]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { delay: 260, tolerance: 8 } }));
 
@@ -66,7 +132,7 @@ export function RegistryScreen() {
     haptic('warn');
     setDeleted({ group, index });
     if (undoTimer.current) clearTimeout(undoTimer.current);
-    undoTimer.current = setTimeout(() => setDeleted(null), 5000);
+    undoTimer.current = setTimeout(() => setDeleted(null), 10_000);
   };
 
   const undo = () => {
@@ -99,11 +165,64 @@ export function RegistryScreen() {
             beta {APP_VERSION}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-4 text-fg-muted">
+        <div className="relative flex shrink-0 items-center gap-4 text-fg-muted">
+          {listOverflows && (
+            <button
+              type="button"
+              aria-label="search"
+              className={searchOpen ? 'text-accent' : ''}
+              onClick={() => {
+                haptic('tap');
+                setSearchOpen((v) => !v);
+                if (searchOpen) setSearchQuery('');
+              }}
+            >
+              <SearchIcon />
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="sort"
+            className={sortOpen ? 'text-accent' : ''}
+            onClick={() => {
+              haptic('tap');
+              setSortOpen((v) => !v);
+            }}
+          >
+            <SortIcon />
+          </button>
+          {sortOpen && (
+            <div className="absolute right-0 top-9 z-40 w-48 rounded-xl bg-bg-elev p-1 shadow-lg">
+              {(
+                [
+                  ['date-desc', t(lang, 'sortDateDesc')],
+                  ['date-asc', t(lang, 'sortDateAsc')],
+                  ['title-asc', t(lang, 'sortTitleAsc')],
+                  ['title-desc', t(lang, 'sortTitleDesc')],
+                  ['manual', t(lang, 'sortManual')],
+                ] as [RegistrySort, string][]
+              ).map(([mode, label]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-sm ${
+                    sortMode === mode ? 'bg-accent-soft font-semibold text-accent' : 'text-fg-muted'
+                  }`}
+                  onClick={() => {
+                    setSortMode(mode);
+                    setSortOpen(false);
+                    haptic('select');
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           <button type="button" aria-label="share" onClick={() => setScreen({ name: 'share' })}>
             <ShareIcon />
           </button>
-          <button type="button" aria-label="import qr" onClick={() => setScreen({ name: 'importPreview', groups: [] })}>
+          <button type="button" aria-label="import qr" onClick={() => setScreen({ name: 'importPreview', groups: [], tagGroups: [] })}>
             <QrIcon />
           </button>
           <button type="button" aria-label="settings" onClick={() => setScreen({ name: 'settings' })}>
@@ -113,34 +232,177 @@ export function RegistryScreen() {
       </header>
 
       {allTags.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto px-4 pb-2">
-          <button
-            type="button"
-            className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${tagFilter === null ? 'bg-accent font-semibold text-black' : 'bg-card text-fg-muted'}`}
-            onClick={() => {
-              haptic('select');
-              setTagFilter(null);
-            }}
+        <div className="px-4 pb-2">
+          <div
+            ref={tagBlockRef}
+            className="flex flex-wrap gap-2 overflow-hidden transition-[max-height]"
+            style={{ maxHeight: `${tagRowsMax * TAG_ROW_PX}px` }}
           >
-            {t(lang, 'tagAll')}
-          </button>
-          {allTags.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${tagFilter === tag ? 'bg-accent font-semibold text-black' : 'bg-card text-fg-muted'}`}
-              onClick={() => {
-                haptic('select');
-                setTagFilter(tagFilter === tag ? null : tag);
-              }}
-            >
-              {tag}
-            </button>
-          ))}
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
+                  selectedTags.includes(tag) ? 'bg-accent font-semibold text-black' : 'bg-card text-fg-muted'
+                }`}
+                onClick={() => {
+                  haptic('select');
+                  setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((x) => x !== tag) : [...prev, tag]));
+                }}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+          {(tagCanExpand || tagRowsMax > 3) && (
+            <div className="mt-1.5 flex items-center justify-center gap-4">
+              {tagCanExpand && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs text-fg-muted active:opacity-60"
+                  onClick={() => {
+                    haptic('tap');
+                    setTagRowsMax((v) => v + 5);
+                  }}
+                >
+                  {t(lang, 'showMore')}
+                  <ChevronDownIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {tagRowsMax > 3 && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-xs text-fg-muted active:opacity-60"
+                  onClick={() => {
+                    haptic('tap');
+                    setTagRowsMax(3);
+                  }}
+                >
+                  {t(lang, 'collapse')}
+                  <ChevronUpIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+      {selectedTags.length > 0 && (
+        <div className="px-4 pb-2">
+          <p className="mb-1.5 text-[10px] uppercase tracking-widest text-fg-faint">{t(lang, 'selectedTags')}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedTags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                className="flex items-center gap-1 rounded-full bg-accent-soft px-3 py-1.5 text-xs text-accent active:opacity-70"
+                onClick={() => {
+                  haptic('select');
+                  setSelectedTags((prev) => prev.filter((x) => x !== tag));
+                }}
+              >
+                {tag} ✕
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              value={groupDraft}
+              onChange={(e) => setGroupDraft(e.target.value)}
+              maxLength={20}
+              placeholder={t(lang, 'groupNamePlaceholder')}
+              className="w-36 rounded-full border border-card-border bg-card px-3 py-1.5 text-xs outline-none placeholder:text-fg-faint focus:border-accent"
+            />
+            <button
+              type="button"
+              className="rounded-full bg-accent-soft px-3 py-1.5 text-xs text-accent active:opacity-70"
+              onClick={() => {
+                saveTagGroup(groupDraft, selectedTags);
+                setGroupDraft('');
+                haptic('notify');
+              }}
+            >
+              {t(lang, 'saveTagGroup')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {tagGroups.length > 0 && (
+        <div className="px-4 pb-2">
+          <p className="mb-1.5 text-[10px] uppercase tracking-widest text-fg-faint">{t(lang, 'tagGroupsLabel')}</p>
+          <div className="flex flex-wrap gap-2">
+            {tagGroups.map((group) => (
+              <span key={group.id} className="flex items-center gap-1 rounded-full bg-card px-3 py-1.5 text-xs text-fg-muted">
+                {editingGroupId === group.id ? (
+                  <input
+                    autoFocus
+                    value={groupRenameDraft}
+                    maxLength={20}
+                    className="w-20 bg-transparent text-xs outline-none"
+                    onChange={(e) => setGroupRenameDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') e.currentTarget.blur();
+                      if (e.key === 'Escape') setEditingGroupId(null);
+                    }}
+                    onBlur={() => {
+                      renameTagGroup(group.id, groupRenameDraft);
+                      setEditingGroupId(null);
+                    }}
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="font-medium active:opacity-70"
+                    onClick={() => {
+                      haptic('select');
+                      setSelectedTags(group.tags);
+                    }}
+                  >
+                    {group.name}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-label="rename group"
+                  className="p-0.5 text-fg-muted active:opacity-60"
+                  onClick={() => {
+                    setEditingGroupId(group.id);
+                    setGroupRenameDraft(group.name);
+                  }}
+                >
+                  <PencilIcon className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="delete group"
+                  className="p-0.5 text-warn active:opacity-60"
+                  onClick={() => {
+                    deleteTagGroup(group.id);
+                    haptic('warn');
+                  }}
+                >
+                  <TrashIcon className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {searchOpen && (
+        <div className="px-4 pb-2">
+          <input
+            autoFocus
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t(lang, 'searchPlaceholder')}
+            className="w-full rounded-xl border border-card-border bg-card px-4 py-2.5 text-sm outline-none placeholder:text-fg-faint focus:border-accent"
+          />
+        </div>
+      )}
+
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
         {groups.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
             <p className="text-lg font-medium">{t(lang, 'registryEmpty')}</p>

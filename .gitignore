@@ -17,6 +17,7 @@ coverage/
 # Tooling artifacts (agent sessions, browser-test snapshots)
 .sisyphus/
 .playwright-mcp/
+backlog/
 
 # Logs
 *.log

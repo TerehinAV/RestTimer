@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { fmtMs } from '../../core/time';
-import { focusRun, runAction } from '../../boot';
+import { adjustInc, canAdjustInc, focusRun, runAction } from '../../boot';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
@@ -188,16 +188,27 @@ export function RunScreen() {
 
       <footer className="px-6 pb-safe">
         <div className="mb-2 flex items-center justify-between text-xs text-fg-muted">
-          <span className="w-16" />
+          {run.incSec > 0 ? (
+            <button
+              type="button"
+              className="w-16 rounded-full bg-card py-1.5 font-mono-timer text-[11px] tabular-nums active:opacity-60"
+              onClick={() => adjustInc(-5)}
+            >
+              −5с
+            </button>
+          ) : (
+            <span className="w-16" />
+          )}
           <span className="font-mono-timer tabular-nums">
             {run.current + 1}/{run.timers.length}
           </span>
           <button
             type="button"
-            className="w-16 rounded-full bg-card py-1.5 text-[11px] text-fg-muted active:opacity-60"
-            onClick={() => runAction('bumpNext')}
+            disabled={!canAdjustInc(5)}
+            className="w-16 rounded-full bg-card py-1.5 font-mono-timer text-[11px] tabular-nums active:opacity-60 disabled:opacity-30"
+            onClick={() => adjustInc(5)}
           >
-            {t(lang, 'bumpNextLabel')}
+            +5с
           </button>
         </div>
         <div className="flex items-center justify-center gap-3">

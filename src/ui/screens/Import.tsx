@@ -2,18 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import { decodeCfg } from '../../core/codec';
 import { fmtMs, plannedMs } from '../../core/time';
-import type { GroupConfig } from '../../core/types';
+import type { GroupConfig, TagGroup } from '../../core/types';
 import { getAudio } from '../../boot';
 import { diag, diagCount } from '../../diagnostics/diagnostics';
 import { t } from '../../i18n';
 import { useApp } from '../../store/app';
 import { haptic } from '../../tg/tg';
 import { CameraIcon, ImageIcon } from '../components/Icons';
+import { HelpTip } from '../components/HelpTip';
 import { useSwipeBack } from '../useSwipeBack';
 
 type ScanMode = 'camera' | 'gallery' | null;
 
 const NO_GROUPS: GroupConfig[] = [];
+const NO_TAG_GROUPS: TagGroup[] = [];
 
 function extractCfg(raw: string): string | null {
   const text = raw.trim();
@@ -32,6 +34,7 @@ function extractCfg(raw: string): string | null {
 export function ImportScreen() {
   const screen = useApp((s) => s.screen);
   const incoming = screen.name === 'importPreview' ? screen.groups : NO_GROUPS;
+  const incomingTagGroups = screen.name === 'importPreview' ? screen.tagGroups : NO_TAG_GROUPS;
   const lang = useApp((s) => s.lang);
   const setScreen = useApp((s) => s.setScreen);
   const applyImport = useApp((s) => s.applyImport);
@@ -60,16 +63,16 @@ export function ImportScreen() {
 
   const acceptPayload = (raw: string) => {
     const cfg = extractCfg(raw);
-    const groups = cfg ? decodeCfg(cfg) : null;
+    const decoded = cfg ? decodeCfg(cfg) : null;
     stopCamera();
-    if (!groups) {
+    if (!decoded) {
       setError(t(lang, 'scanInvalid'));
       haptic('warn');
       return;
     }
     setMode(null);
     setError(null);
-    useApp.getState().setScreen({ name: 'importPreview', groups });
+    useApp.getState().setScreen({ name: 'importPreview', groups: decoded.groups, tagGroups: decoded.tagGroups });
     haptic('notify');
   };
 
@@ -150,7 +153,11 @@ export function ImportScreen() {
   const finish = (target: 'merge' | 'replace') => {
     const picked = incoming.filter((_, i) => selected[i]);
     if (picked.length === 0) return;
-    applyImport(picked, target);
+    const pickedTagNames = new Set(picked.flatMap((gr) => gr.tags ?? []));
+    const relatedGroups = incomingTagGroups
+      .map((gr) => ({ ...gr, tags: gr.tags.filter((tag) => pickedTagNames.has(tag)) }))
+      .filter((gr) => gr.tags.length > 0);
+    applyImport(picked, target, relatedGroups);
     getAudio().voice('cfgLoaded');
     haptic('notify');
     setScreen({ name: 'registry' });
@@ -170,6 +177,9 @@ export function ImportScreen() {
           ‹
         </button>
         <h1 className="text-lg font-semibold">{t(lang, 'importTitle')}</h1>
+        <span className="ml-auto">
+          <HelpTip text={t(lang, 'importHint')} />
+        </span>
       </header>
 
       {incoming.length === 0 ? (

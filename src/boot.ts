@@ -13,7 +13,7 @@ import { initTheme, navLangs } from './theme/apply';
 let engine: TimerEngine | null = null;
 let audio: AudioService | null = null;
 
-export type RunAction = 'tap' | 'pause' | 'resume' | 'skip' | 'restart' | 'previous' | 'finish' | 'bumpNext';
+export type RunAction = 'tap' | 'pause' | 'resume' | 'skip' | 'restart' | 'previous' | 'finish';
 
 export function getEngine(): TimerEngine {
   if (!engine) throw new Error('boot() not called');
@@ -42,6 +42,15 @@ export function runAction(action: RunAction, runId?: string): void {
   if (action === 'tap' || action === 'resume') getAudio().unlock();
   getEngine()[action](runId);
   haptic('tap');
+}
+
+export function adjustInc(deltaSec: number): void {
+  getEngine().adjustInc(deltaSec);
+  haptic('tap');
+}
+
+export function canAdjustInc(deltaSec: number): boolean {
+  return getEngine().canAdjustInc(deltaSec);
 }
 
 export function focusRun(runId: string): void {
@@ -132,13 +141,20 @@ export function boot(): void {
     if (state.registry.groups.length !== prev.registry.groups.length) {
       diag('registry.size', state.registry.groups.length);
     }
+    if (state.registry !== prev.registry || state.tagGroups !== prev.tagGroups) {
+      const live = new Set(state.registry.groups.flatMap((g) => g.tags ?? []));
+      const pruned = state.tagGroups.filter((gr) => gr.tags.some((tag) => live.has(tag)));
+      if (pruned.length !== state.tagGroups.length) {
+        useApp.setState({ tagGroups: pruned });
+      }
+    }
   });
 
   const raw = new URLSearchParams(window.location.search).get('cfg') ?? tgStartParam();
   if (raw) {
-    const groups = decodeCfg(raw);
-    if (groups) {
-      useApp.getState().setScreen({ name: 'importPreview', groups });
+    const decoded = decodeCfg(raw);
+    if (decoded) {
+      useApp.getState().setScreen({ name: 'importPreview', groups: decoded.groups, tagGroups: decoded.tagGroups });
     }
   }
 }

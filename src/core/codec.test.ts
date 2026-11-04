@@ -15,45 +15,58 @@ const g = (over: Partial<GroupConfig> = {}): GroupConfig => ({
 describe('codec', () => {
   it('roundtrips groups with and without names', () => {
     const groups = [g({ name: 'Присед' }), g({ id: 'x2', startSec: 45, count: 12, incSec: 10 }), g({ name: 'жим лёжа верхний блок' })];
-    const decoded = decodeCfg(encodeGroups(groups));
+    const decoded = decodeCfg(encodeGroups(groups))!;
     expect(decoded).not.toBeNull();
-    expect(decoded!.map(({ name, startSec, count, incSec }) => ({ name, startSec, count, incSec }))).toEqual(
+    expect(decoded.groups.map(({ name, startSec, count, incSec }) => ({ name, startSec, count, incSec }))).toEqual(
       groups.map(({ name, startSec, count, incSec }) => ({ name, startSec, count, incSec })),
     );
   });
 
   it('truncates names to the 40-char limit', () => {
     const decoded = decodeCfg(encodeGroups([g({ name: 'x'.repeat(80) })]))!;
-    expect(decoded[0].name!.length).toBe(40);
+    expect(decoded.groups[0].name!.length).toBe(40);
   });
 
   it('roundtrips tags and deduplicates them', () => {
     const groups = [g({ tags: ['Маша', 'вечер', 'Маша  '] })];
     const decoded = decodeCfg(encodeGroups(groups))!;
-    expect(decoded[0].tags).toEqual(['Маша', 'вечер']);
+    expect(decoded.groups[0].tags).toEqual(['Маша', 'вечер']);
   });
 
   it('decodes legacy payloads without tags', () => {
     const legacy = decodeCfg(encodeGroups([g()]))!;
-    expect(legacy[0].tags).toBeUndefined();
+    expect(legacy.groups[0].tags).toBeUndefined();
   });
 
   it('regenerates ids on decode', () => {
     const decoded = decodeCfg(encodeGroups([g()]))!;
-    expect(decoded[0].id).not.toBe('x1');
+    expect(decoded.groups[0].id).not.toBe('x1');
   });
 
   it('clamps out-of-range values', () => {
     const decoded = decodeCfg(encodeGroups([g({ startSec: 99999, count: 500, incSec: -30 })]))!;
-    expect(decoded[0]).toMatchObject({ startSec: 1800, count: 30, incSec: 0 });
+    expect(decoded.groups[0]).toMatchObject({ startSec: 1800, count: 30, incSec: 0 });
     const tooSmall = decodeCfg(encodeGroups([g({ startSec: 0 })]))!;
-    expect(tooSmall[0].startSec).toBe(5);
+    expect(tooSmall.groups[0].startSec).toBe(5);
   });
 
   it('rejects garbage payloads', () => {
     expect(decodeCfg('')).toBeNull();
     expect(decodeCfg('garbage!!!')).toBeNull();
     expect(decodeCfg('AAAA')).toBeNull();
+  });
+
+  it('roundtrips tag groups and dedupes them', () => {
+    const groups = [g({ tags: ['Маша', 'ноги'] })];
+    const tagGroups = [
+      { id: 't1', name: 'Утро', tags: ['Маша', 'ноги'] },
+      { id: 't2', name: 'Утро', tags: ['Маша', 'ноги'] },
+    ];
+    const decoded = decodeCfg(encodeGroups(groups, tagGroups))!;
+    expect(decoded.tagGroups).toHaveLength(1);
+    expect(decoded.tagGroups[0].name).toBe('Утро');
+    expect(decoded.tagGroups[0].tags).toEqual(['Маша', 'ноги']);
+    expect(decoded.tagGroups[0].id).not.toBe('t1');
   });
 
   it('capacity flags mirror budgets', () => {

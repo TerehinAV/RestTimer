@@ -18,3 +18,15 @@ export function fmtMs(ms: number): string {
   if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   return `${m}:${String(s).padStart(2, '0')}`;
 }
+
+export function fmtSecHuman(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const r = sec % 60;
+  if (m === 0) return `${r}с`;
+  if (r === 0) return `${m}м`;
+  return `${m}м ${r}с`;
+}
+
+export function fmtMsHuman(ms: number): string {
+  return fmtSecHuman(Math.round(ms / 1000));
+}

@@ -276,25 +276,56 @@ describe('previous and finish', () => {
   });
 });
 
-describe('bumpNext', () => {
-  it('adds delta to upcoming timers only', () => {
-    engine.start(cfg({ startSec: 30, count: 3, incSec: 0 }));
+describe('adjustInc', () => {
+  it('changes increment and recalcs waiting timers only', () => {
+    engine.start(cfg({ startSec: 60, count: 4, incSec: 10 }));
     engine.tap();
-    clock.tick(30_000);
+    clock.tick(60_000);
     engine.tick();
-    engine.bumpNext(undefined, 5);
+    engine.adjustInc(5);
     const snap = lastSnapshot()[0];
-    expect(snap.timers[1].durMs).toBe(35_000);
-    expect(snap.timers[2].durMs).toBe(35_000);
-    expect(snap.timers[0].durMs).toBe(30_000);
-    expect(snap.plannedMs).toBe(100_000);
+    expect(snap.incSec).toBe(15);
+    expect(snap.timers[0].durMs).toBe(60_000);
+    expect(snap.timers[1].durMs).toBe(75_000);
+    expect(snap.timers[2].durMs).toBe(90_000);
+    expect(snap.timers[3].durMs).toBe(105_000);
   });
 
-  it('caps bumped duration at the max limit', () => {
-    engine.start(cfg({ startSec: 1800, count: 2, incSec: 0 }));
+  it('rejects negative increment at zero', () => {
+    engine.start(cfg({ startSec: 60, count: 3, incSec: 0 }));
     engine.tap();
-    engine.bumpNext(undefined, 5);
-    expect(lastSnapshot()[0].timers[1].durMs).toBe(1_800_000);
+    clock.tick(60_000);
+    engine.tick();
+    expect(engine.canAdjustInc(-5)).toBe(false);
+    engine.adjustInc(-5);
+    expect(lastSnapshot()[0].incSec).toBe(0);
+  });
+
+  it('reduces positive increment down to zero and blocks further decrement', () => {
+    engine.start(cfg({ startSec: 60, count: 3, incSec: 15 }));
+    engine.tap();
+    clock.tick(60_000);
+    engine.tick();
+    engine.adjustInc(-5);
+    engine.adjustInc(-5);
+    engine.adjustInc(-5);
+    expect(lastSnapshot()[0].incSec).toBe(0);
+    expect(lastSnapshot()[0].timers[1].durMs).toBe(60_000);
+    expect(engine.canAdjustInc(-5)).toBe(false);
+  });
+
+  it('caps increment at the base start time', () => {
+    engine.start(cfg({ startSec: 20, count: 3, incSec: 0 }));
+    engine.tap();
+    clock.tick(20_000);
+    engine.tick();
+    engine.adjustInc(5);
+    engine.adjustInc(5);
+    engine.adjustInc(5);
+    engine.adjustInc(5);
+    expect(lastSnapshot()[0].incSec).toBe(20);
+    expect(lastSnapshot()[0].timers[1].durMs).toBe(40_000);
+    expect(engine.canAdjustInc(5)).toBe(false);
   });
 });
 

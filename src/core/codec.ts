@@ -1,26 +1,48 @@
 import LZString from 'lz-string';
 import { nanoid } from 'nanoid';
 import { LIMITS } from './types';
-import type { GroupConfig } from './types';
+import type { GroupConfig, TagGroup } from './types';
 
 export const STARTAPP_BUDGET = 512;
 export const QR_BUDGET = 1200;
 
 type WireGroup = [name: string | 0, startSec: number, count: number, incSec: number, tags?: string[]];
+type WireTagGroup = [name: string, tags: string[]];
 
-function toWire(groups: GroupConfig[]): { v: 1; g: WireGroup[] } {
-  return {
+function toWire(groups: GroupConfig[], tagGroups: TagGroup[]): { v: 1; g: WireGroup[]; tg?: WireTagGroup[] } {
+  const wire: { v: 1; g: WireGroup[]; tg?: WireTagGroup[] } = {
     v: 1,
     g: groups.map((g) => {
-      const wire: WireGroup = [g.name ? g.name : 0, g.startSec, g.count, g.incSec];
-      if (g.tags && g.tags.length > 0) wire.push(g.tags);
-      return wire;
+      const row: WireGroup = [g.name ? g.name : 0, g.startSec, g.count, g.incSec];
+      if (g.tags && g.tags.length > 0) row.push(g.tags);
+      return row;
     }),
   };
+  if (tagGroups.length > 0) {
+    wire.tg = tagGroups.map((group) => [group.name, group.tags] as WireTagGroup);
+  }
+  return wire;
 }
 
-export function encodeGroups(groups: GroupConfig[]): string {
-  return LZString.compressToEncodedURIComponent(JSON.stringify(toWire(groups)));
+export function encodeGroups(groups: GroupConfig[], tagGroups: TagGroup[] = []): string {
+  return LZString.compressToEncodedURIComponent(JSON.stringify(toWire(groups, tagGroups)));
+}
+
+function parseTagGroups(raw: unknown): TagGroup[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: TagGroup[] = [];
+  for (const item of raw) {
+    if (!Array.isArray(item) || typeof item[0] !== 'string') continue;
+    const name = item[0].trim().slice(0, LIMITS.nameMax);
+    const tags = sanitizeTags(item[1]);
+    if (!name || tags.length === 0) continue;
+    const key = name + '|' + [...tags].sort().join(',');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ id: nanoid(8), name, tags });
+  }
+  return out.slice(0, 10);
 }
 
 export function sanitizeTags(raw: unknown): string[] {
@@ -49,6 +71,7 @@ function parseGroup(item: unknown): GroupConfig | null {
   }
   const group: GroupConfig = {
     id: nanoid(8),
+    createdAt: Date.now(),
     startSec: clampNum(startSec, LIMITS.startSecMin, LIMITS.startSecMax, 60, LIMITS.startStep),
     count: clampNum(count, LIMITS.countMin, LIMITS.countMax, 5, 1),
     incSec: clampNum(incSec, LIMITS.incSecMin, LIMITS.incSecMax, 0, LIMITS.incStep),
@@ -61,7 +84,9 @@ function parseGroup(item: unknown): GroupConfig | null {
   return group;
 }
 
-export function decodeCfg(payload: string): GroupConfig[] | null {
+export type DecodedCfg = { groups: GroupConfig[]; tagGroups: TagGroup[] };
+
+export function decodeCfg(payload: string): DecodedCfg | null {
   if (!payload || payload.length > 4000) return null;
   let raw: unknown;
   try {
@@ -72,11 +97,12 @@ export function decodeCfg(payload: string): GroupConfig[] | null {
     return null;
   }
   if (typeof raw !== 'object' || raw === null) return null;
-  const obj = raw as { v?: unknown; g?: unknown };
+  const obj = raw as { v?: unknown; g?: unknown; tg?: unknown };
   if (obj.v !== 1 || !Array.isArray(obj.g) || obj.g.length === 0) return null;
   if (obj.g.length > 50) return null;
   const groups = obj.g.map(parseGroup).filter((g): g is GroupConfig => g !== null);
-  return groups.length > 0 ? groups : null;
+  if (groups.length === 0) return null;
+  return { groups, tagGroups: parseTagGroups(obj.tg) };
 }
 
 export type CapacityReport = {
@@ -88,13 +114,13 @@ export type CapacityReport = {
   fitsQr: boolean;
 };
 
-export function capacityReport(groups: GroupConfig[]): CapacityReport {
+export function capacityReport(groups: GroupConfig[], tagGroups: TagGroup[] = []): CapacityReport {
   const perGroupChars: number[] = [];
   const cumulativeStartapp: boolean[] = [];
   const cumulativeQr: boolean[] = [];
-  let prev = encodeGroups(groups.slice(0, 0)).length;
+  let prev = encodeGroups(groups.slice(0, 0), tagGroups).length;
   groups.forEach((_, i) => {
-    const total = encodeGroups(groups.slice(0, i + 1)).length;
+    const total = encodeGroups(groups.slice(0, i + 1), tagGroups).length;
     perGroupChars.push(total - prev);
     cumulativeStartapp.push(total <= STARTAPP_BUDGET);
     cumulativeQr.push(total <= QR_BUDGET);
