@@ -70,6 +70,7 @@ export function RegistryScreen() {
   const [groupQuery, setGroupQuery] = useState('');
   const [groupRowsMax, setGroupRowsMax] = useState(1);
   const [groupCanExpand, setGroupCanExpand] = useState(false);
+  const [groupMultiLine, setGroupMultiLine] = useState(false);
   const [groupDraft, setGroupDraft] = useState('');
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupTags, setEditingGroupTags] = useState<string[]>([]);
@@ -188,7 +189,10 @@ export function RegistryScreen() {
   useEffect(() => {
     const el = groupBlockRef.current;
     if (!el) return;
-    const check = () => setGroupCanExpand(el.scrollHeight > groupRowsMax * TAG_ROW_PX + 4);
+    const check = () => {
+      setGroupCanExpand(el.scrollHeight > groupRowsMax * TAG_ROW_PX + 4);
+      setGroupMultiLine(el.scrollHeight > TAG_ROW_PX + 4);
+    };
     check();
     const ro = new ResizeObserver(check);
     ro.observe(el);
@@ -308,7 +312,7 @@ export function RegistryScreen() {
     <main className="flex h-full flex-col bg-bg">
       <header className="flex items-center justify-between gap-2 px-4 pb-2 pt-5">
         <div className="flex min-w-0 items-center gap-2">
-          <h1 className="truncate text-xl font-bold">{t(lang, 'registryTitle')}</h1>
+          <h1 className="text-2xl font-black tracking-tighter">RT</h1>
           <button
             type="button"
             aria-label="what's new"
@@ -330,16 +334,6 @@ export function RegistryScreen() {
           </button>
         </div>
         <div className="relative flex shrink-0 items-center gap-2.5 text-fg-muted">
-          {listOverflows && (
-            <button
-              type="button"
-              aria-label="search"
-              className={searchOpen ? 'text-accent' : ''}
-              onClick={toggleSeriesSearch}
-            >
-              {searchOpen ? <XIcon /> : <SearchIcon />}
-            </button>
-          )}
           <button
             type="button"
             aria-label="sort"
@@ -440,7 +434,7 @@ export function RegistryScreen() {
           </p>
           <div
             ref={tagBlockRef}
-            className="flex flex-wrap gap-2 overflow-hidden transition-[max-height]"
+            className="flex w-full min-w-0 flex-wrap gap-2 overflow-hidden transition-[max-height]"
             style={{ maxHeight: `${tagRowsMax * TAG_ROW_PX}px` }}
           >
             {visibleTagList.map((tag) => (
@@ -552,14 +546,16 @@ export function RegistryScreen() {
         <div className="relative z-30 px-4 pb-2">
           <p className="mb-1.5 flex items-center justify-between text-[10px] uppercase tracking-widest text-fg-faint">
             {t(lang, 'tagGroupsLabel')}
-            <button
-              type="button"
-              aria-label="search groups"
-              className={`normal-case ${groupSearchOpen ? 'text-accent' : 'text-fg-muted'}`}
-              onClick={toggleGroupSearch}
-            >
-              {groupSearchOpen ? <XIcon className="h-3.5 w-3.5" /> : <SearchIcon className="h-3.5 w-3.5" />}
-            </button>
+            {groupMultiLine && (
+              <button
+                type="button"
+                aria-label="search groups"
+                className={`normal-case ${groupSearchOpen ? 'text-accent' : 'text-fg-muted'}`}
+                onClick={toggleGroupSearch}
+              >
+                {groupSearchOpen ? <XIcon className="h-3.5 w-3.5" /> : <SearchIcon className="h-3.5 w-3.5" />}
+              </button>
+            )}
           </p>
           {groupSearchOpen && (
             <div className="relative mb-2">
@@ -585,7 +581,7 @@ export function RegistryScreen() {
           )}
           <div
             ref={groupBlockRef}
-            className="flex flex-wrap gap-2 overflow-hidden transition-[max-height]"
+            className="flex w-full min-w-0 flex-wrap gap-2 overflow-hidden transition-[max-height]"
             style={{ maxHeight: `${groupRowsMax * TAG_ROW_PX}px` }}
           >
             {visibleTagGroups.length === 0 && (
@@ -700,6 +696,22 @@ export function RegistryScreen() {
       )}
 
       {editingGroupId && <div className="fixed inset-0 z-20" onClick={saveEditingGroup} />}
+
+      <div className="px-4 pb-1.5">
+        <p className="flex items-center justify-between text-[10px] uppercase tracking-widest text-fg-faint">
+          {t(lang, 'registryTitle')}
+          {listOverflows && (
+            <button
+              type="button"
+              aria-label="search"
+              className={`normal-case ${searchOpen ? 'text-accent' : 'text-fg-muted'}`}
+              onClick={toggleSeriesSearch}
+            >
+              {searchOpen ? <XIcon className="h-3.5 w-3.5" /> : <SearchIcon className="h-3.5 w-3.5" />}
+            </button>
+          )}
+        </p>
+      </div>
 
       {searchOpen && (
         <div className="relative px-4 pb-2">
